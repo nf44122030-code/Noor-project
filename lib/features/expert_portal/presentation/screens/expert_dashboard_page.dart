@@ -30,10 +30,11 @@ class ExpertDashboardPage extends StatelessWidget {
               color: isDark ? Colors.white : Colors.black,
               fontWeight: FontWeight.w600,
             ),
-          ),
+          ), //efsfsfiusygfsfg
           actions: [
             IconButton(
-              icon: Icon(Icons.logout, color: isDark ? Colors.white70 : Colors.black54),
+              icon: Icon(Icons.logout,
+                  color: isDark ? Colors.white70 : Colors.black54),
               onPressed: () => authController.logout(),
             ),
           ],
@@ -62,7 +63,8 @@ class ExpertDashboardPage extends StatelessWidget {
               if (specialty.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
@@ -78,16 +80,24 @@ class ExpertDashboardPage extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 32),
-              
+
               // Stats
               Row(
                 children: [
-                  _buildStatCard('Total\nSessions', '${expertProfile['sessions_completed'] ?? 0}', Icons.videocam, isDark),
+                  _buildStatCard(
+                      'Total\nSessions',
+                      '${expertProfile['sessions_completed'] ?? 0}',
+                      Icons.videocam,
+                      isDark),
                   const SizedBox(width: 16),
-                  _buildStatCard('Profile\nRating', '${expertProfile['rating'] ?? 'N/A'}', Icons.star_rounded, isDark),
+                  _buildStatCard(
+                      'Profile\nRating',
+                      '${expertProfile['rating'] ?? 'N/A'}',
+                      Icons.star_rounded,
+                      isDark),
                 ],
               ),
-              
+
               const SizedBox(height: 32),
               Text(
                 'Upcoming Appointments',
@@ -98,7 +108,7 @@ class ExpertDashboardPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              
+
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
@@ -106,7 +116,8 @@ class ExpertDashboardPage extends StatelessWidget {
                   color: isDark ? AppColors.surfaceDark : Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isDark ? AppColors.borderDark : const Color(0xFFE5E7EB),
+                    color:
+                        isDark ? AppColors.borderDark : const Color(0xFFE5E7EB),
                   ),
                 ),
                 child: Column(
@@ -143,7 +154,8 @@ class ExpertDashboardPage extends StatelessWidget {
     });
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, bool isDark) {
+  Widget _buildStatCard(
+      String title, String value, IconData icon, bool isDark) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(20),
