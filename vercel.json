@@ -1,0 +1,6 @@
+{
+  "buildCommand": "bash build.sh",
+  "outputDirectory": "build/web",
+  "installCommand": "echo 'Handled by build.sh'",
+  "framework": null
+}
