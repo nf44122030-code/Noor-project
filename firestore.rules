@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default rule: users can read/write their own docs
+    match /users/{uid} {
+      allow read, write: if request.auth.uid == uid;
+
+      // Allow users to read their own subscriptions and checkout sessions
+      match /checkout_sessions/{id} {
+        allow read, write: if request.auth.uid == uid;
+      }
+      match /subscriptions/{id} {
+        allow read: if request.auth.uid == uid;
+      }
+    }
+    
+    // Stripe Extension collection: users can read/write their own checkout sessions and read subscriptions
+    match /customers/{uid} {
+      allow read: if request.auth.uid == uid;
+
+      match /checkout_sessions/{id} {
+        allow read, write: if request.auth.uid == uid;
+      }
+      match /subscriptions/{id} {
+        allow read: if request.auth.uid == uid;
+      }
+    }
+
+    // Allow ANYONE to read the active Stripe products and prices
+    match /products/{id} {
+      allow read: if true;
+      
+      match /prices/{id} {
+        allow read: if true;
+      }
+      
+      match /tax_rates/{id} {
+        allow read: if true;
+      }
+    }
+    
+    // experts: Anyone can read expert profiles
+    match /experts/{id} {
+      allow read: if true;
+    }
+
+    // bookings & ai_sessions: Allow all authenticated users
+    // (Queries are filtered by user_id in the application layer)
+    match /bookings/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /ai_sessions/{sessionId} {
+      allow read, write: if request.auth != null;
+      
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // Required by "Trigger Email from Firestore" extension
+    match /mail/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Other collections like FAQ and Plans (for backwards compatibility)
+    match /faq/{id} {
+      allow read: if true;
+    }
+    match /plans/{id} {
+      allow read: if true;
+    }
+
+    // Dynamic Insights & Articles
+    match /default_data/{id} {
+      allow read, write: if request.auth != null;
+    }
+    match /articles/{id} {
+      allow read: if true;
+    }
+  }
+}

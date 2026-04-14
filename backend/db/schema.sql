@@ -1,0 +1,178 @@
+-- Intellix Database Schema
+
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  avatar_url TEXT DEFAULT '',
+  phone TEXT DEFAULT '',
+  location TEXT DEFAULT '',
+  bio TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS plans (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  icon_name TEXT NOT NULL,
+  price_monthly INTEGER NOT NULL DEFAULT 0,
+  price_yearly INTEGER NOT NULL DEFAULT 0,
+  period TEXT NOT NULL,
+  description TEXT NOT NULL,
+  is_popular INTEGER DEFAULT 0,
+  features_json TEXT NOT NULL DEFAULT '[]',
+  gradient_from TEXT NOT NULL DEFAULT '#9CA3AF',
+  gradient_to TEXT NOT NULL DEFAULT '#6B7280',
+  sort_order INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  plan_id TEXT NOT NULL REFERENCES plans(id),
+  billing_cycle TEXT NOT NULL DEFAULT 'monthly',
+  status TEXT NOT NULL DEFAULT 'active',
+  started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS experts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  title TEXT NOT NULL,
+  specialty TEXT NOT NULL,
+  rating REAL NOT NULL DEFAULT 0,
+  reviews INTEGER NOT NULL DEFAULT 0,
+  hourly_rate INTEGER NOT NULL DEFAULT 0,
+  image_url TEXT DEFAULT '',
+  availability TEXT DEFAULT 'Available',
+  years_experience INTEGER DEFAULT 0,
+  sessions_completed INTEGER DEFAULT 0,
+  bio TEXT DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS bookings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expert_id INTEGER NOT NULL REFERENCES experts(id),
+  scheduled_at DATETIME NOT NULL,
+  duration_minutes INTEGER NOT NULL DEFAULT 60,
+  status TEXT NOT NULL DEFAULT 'pending',
+  notes_summary TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ai_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL DEFAULT 'New Chat',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ai_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL REFERENCES ai_sessions(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK(role IN ('user', 'ai')),
+  content TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL DEFAULT 'update',
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  icon_name TEXT DEFAULT 'notifications',
+  is_read INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  icon_name TEXT NOT NULL,
+  gradient_from TEXT NOT NULL,
+  gradient_to TEXT NOT NULL,
+  post_count INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS articles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  read_time TEXT NOT NULL,
+  views TEXT NOT NULL DEFAULT '0',
+  is_featured INTEGER DEFAULT 0,
+  image_url TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS topics (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  post_count INTEGER DEFAULT 0,
+  is_trending INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS trend_metrics (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  metric_name TEXT NOT NULL,
+  metric_value TEXT NOT NULL,
+  change_percent REAL DEFAULT 0,
+  is_positive INTEGER DEFAULT 1,
+  icon_name TEXT DEFAULT 'trending_up',
+  icon_color TEXT DEFAULT '#10B981',
+  timeframe TEXT DEFAULT 'month'
+);
+
+CREATE TABLE IF NOT EXISTS revenue_data (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  period_label TEXT NOT NULL,
+  amount REAL NOT NULL DEFAULT 0,
+  timeframe TEXT DEFAULT 'month'
+);
+
+CREATE TABLE IF NOT EXISTS category_sales (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  category_name TEXT NOT NULL,
+  percentage REAL NOT NULL DEFAULT 0,
+  color_hex TEXT NOT NULL DEFAULT '#0284C7'
+);
+
+CREATE TABLE IF NOT EXISTS top_products (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  sales TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS faq_categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  sort_order INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS faq_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category_id INTEGER NOT NULL REFERENCES faq_categories(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  sort_order INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS user_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  notifications_enabled INTEGER DEFAULT 1,
+  email_notifications INTEGER DEFAULT 1,
+  push_notifications INTEGER DEFAULT 1,
+  auto_save INTEGER DEFAULT 1,
+  language TEXT DEFAULT 'English',
+  dark_mode INTEGER DEFAULT 0
+);

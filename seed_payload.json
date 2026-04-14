@@ -1,0 +1,75 @@
+{
+  "fields": {
+    "id": { "stringValue": "safa_fayyad" },
+    "name": { "stringValue": "Safa Fayyad" },
+    "email": { "stringValue": "safafayyad2033@gmail.com" },
+    "title": { "stringValue": "Business & Strategy Consultant" },
+    "specialty": { "stringValue": "Business Strategy" },
+    "rating": { "doubleValue": 4.9 },
+    "reviews": { "integerValue": "0" },
+    "hourly_rate": { "integerValue": "90" },
+    "hourlyRate": { "integerValue": "90" },
+    "image": { "stringValue": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400" },
+    "availability": { "stringValue": "Available" },
+    "years_experience": { "integerValue": "5" },
+    "yearsExperience": { "integerValue": "5" },
+    "sessions_completed": { "integerValue": "0" },
+    "sessionsCompleted": { "integerValue": "0" },
+    "bio": { "stringValue": "Safa Fayyad is a passionate business and strategy consultant focused on helping individuals and organizations reach their full potential. Specialising in strategic planning, operational efficiency, and growth accelerators." },
+    "schedule": {
+      "arrayValue": {
+        "values": [
+          {
+            "mapValue": {
+              "fields": {
+                "day": { "stringValue": "Monday" },
+                "slots": {
+                  "arrayValue": {
+                    "values": [
+                      { "stringValue": "09:00" },
+                      { "stringValue": "11:00" },
+                      { "stringValue": "14:00" },
+                      { "stringValue": "16:00" }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "mapValue": {
+              "fields": {
+                "day": { "stringValue": "Wednesday" },
+                "slots": {
+                  "arrayValue": {
+                    "values": [
+                      { "stringValue": "10:00" },
+                      { "stringValue": "12:00" },
+                      { "stringValue": "15:00" }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "mapValue": {
+              "fields": {
+                "day": { "stringValue": "Friday" },
+                "slots": {
+                  "arrayValue": {
+                    "values": [
+                      { "stringValue": "09:00" },
+                      { "stringValue": "11:00" },
+                      { "stringValue": "13:00" }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
