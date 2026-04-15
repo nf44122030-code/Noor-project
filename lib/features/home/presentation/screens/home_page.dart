@@ -8,6 +8,7 @@ import '../../../../features/auth/presentation/providers/auth_controller.dart';
 import '../../../../features/ai/presentation/screens/ai_assistant_page.dart';
 import '../../../../features/notification/presentation/screens/notification_page.dart';
 import '../../../../features/explore/presentation/screens/explore_page.dart';
+import '../widgets/market_analysis_dashboard.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -204,7 +205,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           );
           break;
         default:
-          currentWidget = _buildHomeContent(isDark);
+          currentWidget = MarketAnalysisDashboard(isDark: isDark);
       }
 
       return Scaffold(

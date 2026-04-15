@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'market_data_seeder.dart';
 
 class FirebaseSeeder {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -12,6 +13,7 @@ class FirebaseSeeder {
     await seedExplore();
     await seedFAQ();
     await seedDefaultTrends();
+    await MarketDataSeeder.seedIraqiMarketData();
     
     debugPrint('✅ Firestore seeding complete!');
   }

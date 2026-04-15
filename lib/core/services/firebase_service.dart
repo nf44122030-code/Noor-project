@@ -14,6 +14,17 @@ class FirebaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // --- Market Insights ---
+  Future<List<Map<String, dynamic>>> getMarketInsights() async {
+    try {
+      final snapshot = await _firestore.collection('iraq_market_insights').get();
+      return snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
+    } catch (e) {
+      debugPrint('Error fetching market insights: \$e');
+      return [];
+    }
+  }
+
   // --- Assistant / Delegate Logic ---
   String? _cachedEffectiveUid;
 
