@@ -821,11 +821,75 @@ class FirebaseService {
             'You MUST reply exclusively in Kurdish Sorani (کوردی) while maintaining the professional business advisor persona.';
       }
 
+      // ── Fetch Iraq market data for AI context ──
+      String marketDataContext = '';
+      try {
+        final marketSnap = await _firestore.collection('iraq_market_insights').get();
+        if (marketSnap.docs.isNotEmpty) {
+          final buffer = StringBuffer();
+          buffer.writeln('==============================');
+          buffer.writeln('IRAQ MARKET INTELLIGENCE DATABASE');
+          buffer.writeln('==============================');
+          buffer.writeln('Below is REAL market data from the Intellix platform database.');
+          buffer.writeln('Use this data to give PRECISE, data-backed answers about Iraqi markets.');
+          buffer.writeln('All financial figures are in Iraqi Dinar (IQD).');
+          buffer.writeln('');
+
+          // Group by city for readability
+          final Map<String, List<Map<String, dynamic>>> byCity = {};
+          for (final doc in marketSnap.docs) {
+            final d = doc.data();
+            final city = d['city'] as String? ?? 'Unknown';
+            byCity.putIfAbsent(city, () => []).add(d);
+          }
+
+          for (final entry in byCity.entries) {
+            buffer.writeln('--- ${entry.key} ---');
+            for (final d in entry.value) {
+              final area = d['area'] ?? '';
+              final industry = d['industry'] ?? '';
+              final category = d['category'] ?? '';
+              final competition = d['competition_level'] ?? '';
+              final success = d['success_probability'] ?? '';
+              final risk = d['risk_level'] ?? '';
+              final fin = d['financials'] as Map<String, dynamic>? ?? {};
+              final startup = fin['avg_startup_cost'] ?? '';
+              final opCost = fin['avg_monthly_operational_cost'] ?? '';
+              final margin = fin['profitability_margin'] ?? '';
+              final revenue = fin['revenue_projections'] as Map<String, dynamic>? ?? {};
+              final audience = d['audience'] as Map<String, dynamic>? ?? {};
+              final demographics = audience['target_demographics'] ?? [];
+              final marketSize = audience['market_size_est'] ?? '';
+              final trends = d['trends'] as List<dynamic>? ?? [];
+              final geoRec = d['geo_recommendation'] ?? '';
+
+              buffer.writeln('  $area | $industry > $category');
+              buffer.writeln('    Competition: $competition/100 | Success Probability: $success% | Risk: $risk');
+              buffer.writeln('    Startup Cost: $startup IQD | Monthly OpCost: $opCost IQD | Margin: $margin');
+              if (revenue.isNotEmpty) {
+                buffer.writeln('    Revenue Projections: ${revenue.entries.map((e) => "${e.key}: ${e.value} IQD").join(", ")}');
+              }
+              buffer.writeln('    Market Size: $marketSize | Demographics: ${demographics.join(", ")}');
+              if (trends.isNotEmpty) {
+                buffer.writeln('    Demand Trends: ${trends.map((t) => "${t['year']}: ${t['demand_index']}").join(", ")}');
+              }
+              buffer.writeln('    Insight: $geoRec');
+              buffer.writeln('');
+            }
+          }
+
+          buffer.writeln('IMPORTANT: When the user asks about any city, area, industry, or category above, you MUST reference this exact data. Do NOT make up numbers. Cite the specific competition level, success probability, startup costs, and trends from this database.');
+          marketDataContext = buffer.toString();
+        }
+      } catch (e) {
+        debugPrint('Market data fetch for AI context failed: $e');
+      }
+
       return '''
 ==============================
 IDENTITY
 ==============================
-You are Intellix AI — a smart business intelligence assistant built for entrepreneurs, startups, SMEs, and enterprises. You reason like a data analyst, business consultant, and strategic advisor.
+You are Intellix AI — a smart business intelligence assistant built for entrepreneurs, startups, SMEs, and enterprises. You reason like a data analyst, business consultant, and strategic advisor. You have FULL ACCESS to the Intellix Iraq Market Intelligence Database and must use it to provide precise, data-driven answers.
 
 ==============================
 DOMAIN RESTRICTION — CRITICAL
@@ -837,6 +901,7 @@ You are an assistant for the Intellix platform ONLY. You must ONLY answer questi
 - Entrepreneurship, startups, and SME operations
 - The user's own data, sessions, bookings, and account on Intellix
 - Features and usage of the Intellix platform
+- Iraqi market conditions, area profiles, competition data, and trends
 
 If the user asks ANYTHING outside this domain, you MUST respond with exactly:
 "I am Intellix AI, a business intelligence assistant. I can only help with business strategy, market analysis, financial planning, or questions about your Intellix account. Is there a business challenge I can help you with?"
@@ -845,7 +910,8 @@ If the user asks ANYTHING outside this domain, you MUST respond with exactly:
 FORMATTING & TONE — CRITICAL
 ==============================
 1. DO NOT use any markdown characters. Absolutely NO asterisks (*), hashtags (#), or bolding. Write purely in plain, flat text.
-2. If the user sends a very short or one-word message (like "Hi" or "high"), do NOT write long essays or overreact. Simply reply with a short, polite 1-2 sentence greeting and ask how you can help. Match the length and tone of the user's input. 
+2. If the user sends a very short or one-word message (like "Hi" or "high"), do NOT write long essays or overreact. Simply reply with a short, polite 1-2 sentence greeting and ask how you can help. Match the length and tone of the user's input.
+3. When citing market data, present numbers naturally in sentences (e.g. "The competition level in Bakhtiari for high-end cafes is 74 out of 100 with a 63% success probability").
 
 ==============================
 USER CONTEXT
@@ -857,6 +923,8 @@ User Bio/Details: $bio
 LANGUAGE INSTRUCTION — CRITICAL
 ==============================
 $languageInstruction
+
+$marketDataContext
 
 (Use this context silently to personalize your advice when relevant.)
 '''
