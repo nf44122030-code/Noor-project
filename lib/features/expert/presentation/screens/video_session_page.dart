@@ -220,12 +220,12 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         });
         _startTimer();
 
-        // 3. Start live transcription (Web Speech API)
+        // 3. Start Agora Real-Time STT cloud agent
         try {
-          await AgoraService.startLiveTranscription(locale: 'en-US');
+          await AgoraService.startSttAgent(channelId);
           if (mounted) setState(() => _isTranscribing = true);
         } catch (e) {
-          debugPrint('Transcription start failed: $e');
+          debugPrint('STT agent start failed: $e');
         }
 
         setState(() {

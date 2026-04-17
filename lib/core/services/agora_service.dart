@@ -1,16 +1,18 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'live_transcription_service.dart';
 import 'vertex_ai_service.dart';
 
 class AgoraService {
   static const String appId = "c1e946d412a4440c8fa0d51e481544c6"; 
+  static const int _pubBotUid = 88222; // STT agent publisher UID
   
   static RtcEngine? _engine;
   static final List<String> _transcriptBuffer = [];
+  static String? _sttAgentId;
   
   static Function(int)? onRemoteUserJoined;
   static Function(int)? onRemoteUserOffline;
@@ -38,15 +40,29 @@ class AgoraService {
         },
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
           debugPrint("Agora: User joined $remoteUid");
-          if (onRemoteUserJoined != null) onRemoteUserJoined!(remoteUid);
+          // Don't show STT bot as a remote user in the UI
+          if (remoteUid != _pubBotUid && remoteUid != 47091) {
+            if (onRemoteUserJoined != null) onRemoteUserJoined!(remoteUid);
+          }
         },
         onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
           debugPrint("Agora: User offline $remoteUid");
-          if (onRemoteUserOffline != null) onRemoteUserOffline!(remoteUid);
+          if (remoteUid != _pubBotUid && remoteUid != 47091) {
+            if (onRemoteUserOffline != null) onRemoteUserOffline!(remoteUid);
+          }
         },
         onError: (ErrorCodeType err, String msg) {
           debugPrint("Agora Error $err: $msg");
           if (onAgoraError != null) onAgoraError!('Agora System Error: $err - $msg');
+        },
+        // ─── Receive STT transcription data from the pubBot ───
+        onStreamMessage: (RtcConnection connection, int remoteUid, int streamId, Uint8List data, int length, int sentTs) {
+          if (remoteUid == _pubBotUid) {
+            _handleSttData(data);
+          }
+        },
+        onStreamMessageError: (RtcConnection connection, int remoteUid, int streamId, ErrorCodeType code, int missed, int cached) {
+          debugPrint("Agora: Stream message error from $remoteUid: $code");
         },
       ),
     );
@@ -107,13 +123,13 @@ class AgoraService {
   }
 
   static Future<void> leaveChannel() async {
-    await stopLiveTranscription();
+    await stopSttAgent();
     await _engine?.leaveChannel();
     _transcriptBuffer.clear();
   }
 
   static Future<void> dispose() async {
-    await stopLiveTranscription();
+    await stopSttAgent();
     await _engine?.leaveChannel();
     await _engine?.release();
     _engine = null;
@@ -122,35 +138,203 @@ class AgoraService {
     onTranscriptUpdate = null;
   }
 
-  // ─── Live Transcription ───────────────────────────────────
+  // ─── Agora Real-Time STT (Cloud Service) ──────────────────
 
-  /// Start live speech-to-text using the browser's Web Speech API.
-  /// Transcribed text is added to the buffer and forwarded via [onTranscriptUpdate].
-  static Future<void> startLiveTranscription({String locale = 'en-US'}) async {
-    await LiveTranscriptionService.startListening(
-      locale: locale,
-      onResult: (String text) {
-        final timestamped = '[You]: $text';
-        _transcriptBuffer.add(timestamped);
-        if (onTranscriptUpdate != null) onTranscriptUpdate!(text);
-      },
-      onError: (String error) {
-        debugPrint('Transcription error: $error');
-        if (onAgoraError != null) onAgoraError!('STT: $error');
-      },
-    );
-    debugPrint('Live transcription started');
+  /// Start the Agora Real-Time STT cloud agent for a channel.
+  static Future<void> startSttAgent(String channelName) async {
+    try {
+      final url = Uri.parse('https://noor-project-nine.vercel.app/api/agora/stt');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'action': 'start', 'channelName': channelName}),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        _sttAgentId = data['agentId'];
+        debugPrint('STT Agent started: $_sttAgentId');
+      } else {
+        debugPrint('STT start failed: ${response.body}');
+        if (onAgoraError != null) onAgoraError!('STT start failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('STT start error: $e');
+      if (onAgoraError != null) onAgoraError!('STT start error: $e');
+    }
   }
 
-  /// Stop live speech-to-text.
-  static Future<void> stopLiveTranscription() async {
-    await LiveTranscriptionService.stopListening();
-    debugPrint('Live transcription stopped');
+  /// Stop the Agora Real-Time STT cloud agent.
+  static Future<void> stopSttAgent() async {
+    if (_sttAgentId == null) return;
+    try {
+      final url = Uri.parse('https://noor-project-nine.vercel.app/api/agora/stt');
+      await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'action': 'stop', 'agentId': _sttAgentId}),
+      ).timeout(const Duration(seconds: 5));
+      debugPrint('STT Agent stopped: $_sttAgentId');
+      _sttAgentId = null;
+    } catch (e) {
+      debugPrint('STT stop error: $e');
+      _sttAgentId = null;
+    }
   }
 
-  static bool get isTranscribing => LiveTranscriptionService.isListening;
+  static bool get isTranscribing => _sttAgentId != null;
 
-  /// Adds a snippet to the live transcript (usually called by an STT listener)
+  /// Parse protobuf STT data from the onStreamMessage callback.
+  /// Agora sends the Text protobuf message. We extract the words field.
+  static void _handleSttData(Uint8List data) {
+    try {
+      final result = _parseProtobufText(data);
+      if (result != null && result['text'] != null && (result['text'] as String).trim().isNotEmpty) {
+        final text = (result['text'] as String).trim();
+        final isFinal = result['isFinal'] as bool;
+        final uid = result['uid'] as int;
+
+        if (isFinal) {
+          // Determine speaker label
+          final speaker = uid == 0 ? 'You' : 'Speaker $uid';
+          final entry = '[$speaker]: $text';
+          _transcriptBuffer.add(entry);
+          debugPrint('STT Final: $entry');
+          if (onTranscriptUpdate != null) onTranscriptUpdate!(text);
+        }
+      }
+    } catch (e) {
+      debugPrint('STT parse error: $e');
+    }
+  }
+
+  /// Minimal protobuf Text message parser (proto3 wire format).
+  /// Extracts: uid (field 4), words.text (field 10 -> sub field 1),
+  /// words.is_final (field 10 -> sub field 4)
+  static Map<String, dynamic>? _parseProtobufText(Uint8List data) {
+    int pos = 0;
+    int uid = 0;
+    String fullText = '';
+    bool isFinal = false;
+
+    while (pos < data.length) {
+      if (pos >= data.length) break;
+      // Read field tag (varint)
+      final tagResult = _readVarint(data, pos);
+      if (tagResult == null) break;
+      final tag = tagResult.value;
+      pos = tagResult.nextPos;
+
+      final fieldNumber = tag >> 3;
+      final wireType = tag & 0x7;
+
+      if (wireType == 0) {
+        // Varint
+        final varint = _readVarint(data, pos);
+        if (varint == null) break;
+        pos = varint.nextPos;
+        if (fieldNumber == 4) uid = varint.value; // uid field
+      } else if (wireType == 2) {
+        // Length-delimited
+        final lenResult = _readVarint(data, pos);
+        if (lenResult == null) break;
+        final len = lenResult.value;
+        pos = lenResult.nextPos;
+        
+        if (pos + len > data.length) break;
+        final subData = data.sublist(pos, pos + len);
+
+        if (fieldNumber == 10) {
+          // Word message — parse sub-fields
+          final word = _parseWord(Uint8List.fromList(subData));
+          if (word != null) {
+            if (fullText.isNotEmpty) fullText += ' ';
+            fullText += word['text'] ?? '';
+            if (word['isFinal'] == true) isFinal = true;
+          }
+        } else if (fieldNumber == 13) {
+          // data_type string — skip, not needed
+        } else if (fieldNumber == 15) {
+          // culture string — skip
+        }
+
+        pos += len;
+      } else if (wireType == 5) {
+        // 32-bit fixed
+        pos += 4;
+      } else if (wireType == 1) {
+        // 64-bit fixed
+        pos += 8;
+      } else {
+        break; // unknown wire type
+      }
+    }
+
+    if (fullText.isEmpty) return null;
+    return {'text': fullText, 'isFinal': isFinal, 'uid': uid};
+  }
+
+  /// Parse a Word sub-message: text (field 1), is_final (field 4)
+  static Map<String, dynamic>? _parseWord(Uint8List data) {
+    int pos = 0;
+    String text = '';
+    bool isFinal = false;
+
+    while (pos < data.length) {
+      final tagResult = _readVarint(data, pos);
+      if (tagResult == null) break;
+      final tag = tagResult.value;
+      pos = tagResult.nextPos;
+
+      final fieldNumber = tag >> 3;
+      final wireType = tag & 0x7;
+
+      if (wireType == 0) {
+        final varint = _readVarint(data, pos);
+        if (varint == null) break;
+        pos = varint.nextPos;
+        if (fieldNumber == 4) isFinal = varint.value != 0;
+      } else if (wireType == 2) {
+        final lenResult = _readVarint(data, pos);
+        if (lenResult == null) break;
+        final len = lenResult.value;
+        pos = lenResult.nextPos;
+        if (pos + len > data.length) break;
+
+        if (fieldNumber == 1) {
+          text = utf8.decode(data.sublist(pos, pos + len));
+        }
+        pos += len;
+      } else if (wireType == 5) {
+        pos += 4;
+      } else if (wireType == 1) {
+        pos += 8;
+      } else {
+        break;
+      }
+    }
+
+    return {'text': text, 'isFinal': isFinal};
+  }
+
+  /// Read a varint from the data at the given position.
+  static _VarintResult? _readVarint(Uint8List data, int pos) {
+    int result = 0;
+    int shift = 0;
+    while (pos < data.length) {
+      final byte = data[pos];
+      result |= (byte & 0x7F) << shift;
+      pos++;
+      if ((byte & 0x80) == 0) {
+        return _VarintResult(result, pos);
+      }
+      shift += 7;
+      if (shift > 35) return null; // too many bytes for a 32-bit varint
+    }
+    return null;
+  }
+
+  /// Adds a snippet to the live transcript
   static void addTranscriptSnippet(String text) {
     _transcriptBuffer.add(text);
   }
@@ -183,4 +367,10 @@ class AgoraService {
     if (_engine == null) throw Exception("Agora engine NOT initialized");
     return _engine!;
   }
+}
+
+class _VarintResult {
+  final int value;
+  final int nextPos;
+  _VarintResult(this.value, this.nextPos);
 }
