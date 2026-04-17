@@ -82,15 +82,15 @@ class AuthController extends GetxController {
     if (user != null) {
       _isEmailVerified.value = user.emailVerified;
       await _fetchUserProfile(user.uid);
-      // Start listening for push notifications
-      notif.NotificationListener.startListening();
+      // Start listening for push notifications (non-blocking)
+      try { notif.NotificationListener.startListening(); } catch (_) {}
     } else {
       _userProfile.clear();
       _expertProfile.clear();
       _isEmailVerified.value = false;
       _isExpertMode.value = false;
       // Stop push notifications
-      notif.NotificationListener.stopListening();
+      try { notif.NotificationListener.stopListening(); } catch (_) {}
     }
     _isLoading.value = false;
   }
