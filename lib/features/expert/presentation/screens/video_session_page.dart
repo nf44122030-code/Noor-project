@@ -39,7 +39,9 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   bool _showChat = false;
   bool _showNotes = false;
   bool _isAgoraInitialized = false;
+  bool _isTranscribing = false;
   String? _agoraError;
+  String _lastTranscript = '';
   int? _remoteUid;
   String _channelId = '';
 
@@ -82,6 +84,13 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     };
     AgoraService.onAgoraError = (msg) {
       if (mounted) setState(() => _agoraError = msg);
+    };
+    AgoraService.onTranscriptUpdate = (text) {
+      if (mounted) {
+        setState(() => _lastTranscript = text);
+        // Also feed it to the notes controller
+        notesController.simulateAINoteGeneration('You', text);
+      }
     };
     
     _checkPermissionsOnLoad();
@@ -204,6 +213,15 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
           _showChat = true;
         });
         _startTimer();
+
+        // 3. Start live transcription (Web Speech API)
+        try {
+          await AgoraService.startLiveTranscription(locale: 'en-US');
+          if (mounted) setState(() => _isTranscribing = true);
+        } catch (e) {
+          debugPrint('Transcription start failed: $e');
+        }
+
         setState(() {
           _aiChatMessages.add({
             'message': '👋 Hi! I\'m your Intellix Assistant. I can help take notes or answer questions while you talk to $_expertName.',
@@ -605,6 +623,39 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                           ]),
                         ),
                       ),
+
+                      // ── Live transcription indicator (below timer) ──
+                      if (_isTranscribing)
+                        Positioned(
+                          top: 72, left: 16,
+                          child: Container(
+                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.6),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.hearing, color: Colors.cyanAccent, size: 14),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    _lastTranscript.isNotEmpty ? _lastTranscript : 'Listening...',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.9),
+                                      fontSize: 11,
+                                      fontStyle: _lastTranscript.isEmpty ? FontStyle.italic : FontStyle.normal,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
 
                       // ── Speaking indicator (only when remote user is connected) ──
                       if (_remoteUid != null)

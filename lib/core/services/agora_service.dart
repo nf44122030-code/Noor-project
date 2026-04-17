@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'live_transcription_service.dart';
 import 'vertex_ai_service.dart';
 
 class AgoraService {
@@ -14,6 +15,7 @@ class AgoraService {
   static Function(int)? onRemoteUserJoined;
   static Function(int)? onRemoteUserOffline;
   static Function(String)? onAgoraError;
+  static Function(String)? onTranscriptUpdate;
 
   static Future<void> initialize() async {
     if (_engine != null) return;
@@ -46,8 +48,6 @@ class AgoraService {
           debugPrint("Agora Error $err: $msg");
           if (onAgoraError != null) onAgoraError!('Agora System Error: $err - $msg');
         },
-        // In a real production app, we would use Agora's Speech-to-Text (STT) 
-        // extensions to populate the transcriptBuffer in real-time.
       ),
     );
   }
@@ -107,17 +107,48 @@ class AgoraService {
   }
 
   static Future<void> leaveChannel() async {
+    await stopLiveTranscription();
     await _engine?.leaveChannel();
     _transcriptBuffer.clear();
   }
 
   static Future<void> dispose() async {
+    await stopLiveTranscription();
     await _engine?.leaveChannel();
     await _engine?.release();
     _engine = null;
     onRemoteUserJoined = null;
     onRemoteUserOffline = null;
+    onTranscriptUpdate = null;
   }
+
+  // ─── Live Transcription ───────────────────────────────────
+
+  /// Start live speech-to-text using the browser's Web Speech API.
+  /// Transcribed text is added to the buffer and forwarded via [onTranscriptUpdate].
+  static Future<void> startLiveTranscription({String locale = 'en-US'}) async {
+    await LiveTranscriptionService.startListening(
+      locale: locale,
+      onResult: (String text) {
+        final timestamped = '[You]: $text';
+        _transcriptBuffer.add(timestamped);
+        if (onTranscriptUpdate != null) onTranscriptUpdate!(text);
+      },
+      onError: (String error) {
+        debugPrint('Transcription error: $error');
+        if (onAgoraError != null) onAgoraError!('STT: $error');
+      },
+    );
+    debugPrint('Live transcription started');
+  }
+
+  /// Stop live speech-to-text.
+  static Future<void> stopLiveTranscription() async {
+    await LiveTranscriptionService.stopListening();
+    debugPrint('Live transcription stopped');
+  }
+
+  static bool get isTranscribing => LiveTranscriptionService.isListening;
 
   /// Adds a snippet to the live transcript (usually called by an STT listener)
   static void addTranscriptSnippet(String text) {
