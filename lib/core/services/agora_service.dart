@@ -13,6 +13,7 @@ class AgoraService {
   
   static Function(int)? onRemoteUserJoined;
   static Function(int)? onRemoteUserOffline;
+  static Function(String)? onAgoraError;
 
   static Future<void> initialize() async {
     if (_engine != null) return;
@@ -40,6 +41,10 @@ class AgoraService {
         onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
           debugPrint("Agora: User offline $remoteUid");
           if (onRemoteUserOffline != null) onRemoteUserOffline!(remoteUid);
+        },
+        onError: (ErrorCodeType err, String msg) {
+          debugPrint("Agora Error $err: $msg");
+          if (onAgoraError != null) onAgoraError!('Agora System Error: $err - $msg');
         },
         // In a real production app, we would use Agora's Speech-to-Text (STT) 
         // extensions to populate the transcriptBuffer in real-time.
@@ -82,6 +87,7 @@ class AgoraService {
       );
     } catch (e) {
       debugPrint("Agora token error: $e — joining with empty token");
+      if (onAgoraError != null) onAgoraError!('Token fetch failed: $e');
       // Fallback: join without a token (works in Agora Testing Mode)
       await _engine?.joinChannel(
         token: "",

@@ -39,6 +39,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   bool _showChat = false;
   bool _showNotes = false;
   bool _isAgoraInitialized = false;
+  String? _agoraError;
   int? _remoteUid;
   String _channelId = '';
 
@@ -82,6 +83,9 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     };
     AgoraService.onRemoteUserOffline = (uid) {
       if (mounted && _remoteUid == uid) setState(() => _remoteUid = null);
+    };
+    AgoraService.onAgoraError = (msg) {
+      if (mounted) setState(() => _agoraError = msg);
     };
     
     _checkPermissionsOnLoad();
@@ -183,7 +187,12 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
 
     try {
       // 1. Initialize Agora instantly to turn on the local camera
-      await AgoraService.initialize();
+      try {
+        await AgoraService.initialize();
+      } catch(e) {
+        if (mounted) setState(() => _agoraError = 'Init Exception: $e');
+      }
+
       if (!mounted) return;
       setState(() {
         _isAgoraInitialized = true;
@@ -471,6 +480,17 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
       final isNotesRecording = notesController.isRecording.value;
       return Column(
         children: [
+          if (_agoraError != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              color: Colors.redAccent,
+              child: Text(
+                'Video Error: $_agoraError',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+            ),
           Expanded(
             child: Stack(
               children: [
