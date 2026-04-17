@@ -16,9 +16,9 @@ class AgoraService {
 
   static Future<void> initialize() async {
     if (_engine != null) return;
-
-    await [Permission.microphone, Permission.camera].request();
-
+    if (!kIsWeb) {
+      await [Permission.microphone, Permission.camera].request();
+    }
     _engine = createAgoraRtcEngine();
     await _engine!.initialize(const RtcEngineContext(
       appId: appId,
