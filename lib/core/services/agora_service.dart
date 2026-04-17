@@ -48,7 +48,7 @@ class AgoraService {
   }
 
   static Future<void> joinChannel(String channelId, int uid) async {
-    final options = const ChannelMediaOptions(
+    const options = ChannelMediaOptions(
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
       channelProfile: ChannelProfileType.channelProfileCommunication,
       publishMicrophoneTrack: true,

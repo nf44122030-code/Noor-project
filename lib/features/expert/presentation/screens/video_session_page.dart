@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
@@ -65,6 +66,9 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
       for (int i = 0; i < 5; i++) {
         _codeControllers[i].text = widget.initialCode![i];
       }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _verifyCode();
+      });
     }
 
     _pulseController = AnimationController(
@@ -148,7 +152,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
       final doc = query.docs.first;
       final bookingId = doc.id;
       final isClient = doc.data()['user_id'] == await FirebaseService().getEffectiveUid();
-      final hasPermissions = await PermissionsHelper.hasVideoCallPermissions();
+      final hasPermissions = kIsWeb || await PermissionsHelper.hasVideoCallPermissions();
       
       if (!hasPermissions && mounted) {
         await showCameraPermissionDialog(
@@ -170,35 +174,40 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     }
   }
 
-  void _connectToSession({required String channelId, bool isDemo = false, bool isClient = false}) {
+  void _connectToSession({required String channelId, bool isDemo = false, bool isClient = false}) async {
     if (isClient) {
       FirebaseService().initiateCall(channelId).catchError((e) => debugPrint('Error ringing expert: $e'));
     }
 
-    Future.delayed(const Duration(seconds: 1), () async {
-      try {
-        await AgoraService.initialize();
-        await AgoraService.joinChannel(channelId, 0);
-        if (mounted) {
-          setState(() {
-            _channelId = channelId;
-            _sessionState = 'active';
-            _isAgoraInitialized = true;
-            _showChat = true;
+    try {
+      // 1. Initialize Agora instantly to turn on the local camera
+      await AgoraService.initialize();
+      if (!mounted) return;
+      setState(() {
+        _isAgoraInitialized = true;
+        _sessionState = 'active';
+        _channelId = channelId;
+      });
+
+      // 2. Join the channel (can take a second to resolve)
+      await AgoraService.joinChannel(channelId, 0);
+      
+      if (mounted) {
+        setState(() {
+          _showChat = true;
+        });
+        _startTimer();
+        setState(() {
+          _aiChatMessages.add({
+            'message': '👋 Hi! I\'m your Intellix Assistant. I can help take notes or answer questions while you talk to $_expertName.',
+            'timestamp': _formatTime(0),
+            'isAI': true,
           });
-          _startTimer();
-          setState(() {
-            _aiChatMessages.add({
-              'message': '👋 Hi! I\'m your Intellix Assistant. I can help take notes or answer questions while you talk to $_expertName.',
-              'timestamp': _formatTime(0),
-              'isAI': true,
-            });
-          });
-        }
-      } catch (e) {
-        if (mounted) setState(() => _sessionState = 'code-entry');
+        });
       }
-    });
+    } catch (e) {
+      if (mounted) setState(() => _sessionState = 'code-entry');
+    }
   }
 
   void _startTimer() {
