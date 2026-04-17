@@ -44,6 +44,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
 
   int _sessionTime = 0;
   Timer? _timer;
+  StreamSubscription<DocumentSnapshot>? _bookingSubscription;
   late AnimationController _pulseController;
   final List<Map<String, dynamic>> _aiChatMessages = [];
 
@@ -113,6 +114,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
 
   @override
   void dispose() {
+    _bookingSubscription?.cancel();
     for (var controller in _codeControllers) {
       controller.dispose();
     }
@@ -204,6 +206,22 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
             'isAI': true,
           });
         });
+
+        // 3. Listen to the booking document for disconnects
+        _bookingSubscription = FirebaseFirestore.instance
+            .collection('bookings')
+            .doc(channelId)
+            .snapshots()
+            .listen((snapshot) {
+          if (snapshot.exists && snapshot.data() != null) {
+            final status = snapshot.data()!['status'];
+            if (status == 'completed' || status == 'cancelled') {
+              if (mounted && _sessionState == 'active') {
+                _forceEndSessionFromRemote();
+              }
+            }
+          }
+        });
       }
     } catch (e) {
       if (mounted) setState(() => _sessionState = 'code-entry');
@@ -269,11 +287,36 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   Future<void> _endSession() async {
     setState(() => _sessionState = 'connecting'); 
     try {
+      if (_channelId.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('bookings').doc(_channelId).update({'status': 'completed'});
+      }
       AgoraService.addTranscriptSnippet('Session ended after ${_formatTime(_sessionTime)} with $_expertName.');
       final aiNotes = await AgoraService.generateSessionNotes();
       await AgoraService.leaveChannel();
       if (mounted && aiNotes != null) {
         final savedSession = await notesController.saveSession(
+          expertName: _expertName,
+          expertTitle: _expertTitle,
+          duration: _sessionTime,
+          aiContent: aiNotes,
+        );
+        if (mounted) context.go('/session-notes/${savedSession.id}');
+      } else if (mounted) {
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) context.pop();
+    }
+  }
+
+  Future<void> _forceEndSessionFromRemote() async {
+    setState(() => _sessionState = 'connecting'); 
+    try {
+      AgoraService.addTranscriptSnippet('Session was ended by the other participant.');
+      final aiNotes = await AgoraService.generateSessionNotes();
+      await AgoraService.leaveChannel();
+      if (mounted && aiNotes != null) {
+         final savedSession = await notesController.saveSession(
           expertName: _expertName,
           expertTitle: _expertTitle,
           duration: _sessionTime,
