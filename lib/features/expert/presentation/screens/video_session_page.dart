@@ -500,7 +500,10 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                               ? AgoraVideoView(
                                   controller: VideoViewController.remote(
                                     rtcEngine: AgoraService.engine,
-                                    canvas: VideoCanvas(uid: _remoteUid),
+                                    canvas: VideoCanvas(
+                                      uid: _remoteUid,
+                                      renderMode: RenderModeType.renderModeHidden,
+                                    ),
                                     connection: RtcConnection(channelId: _channelId),
                                   ),
                                 )
@@ -563,7 +566,10 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                               ? AgoraVideoView(
                                   controller: VideoViewController(
                                     rtcEngine: AgoraService.engine,
-                                    canvas: const VideoCanvas(uid: 0),
+                                    canvas: const VideoCanvas(
+                                      uid: 0,
+                                      renderMode: RenderModeType.renderModeHidden,
+                                    ),
                                   ),
                                 )
                               : Container(color: Colors.grey[900], child: const Icon(Icons.videocam_off, color: Colors.white54)),
