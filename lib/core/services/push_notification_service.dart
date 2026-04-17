@@ -1,3 +1,5 @@
 /// Conditional export: uses stub on mobile, real JS interop on web.
+library push_notification_service;
+
 export 'push_notification_service_stub.dart'
     if (dart.library.html) 'push_notification_service_web.dart';

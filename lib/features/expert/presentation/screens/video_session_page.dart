@@ -41,7 +41,6 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   bool _isAgoraInitialized = false;
   bool _isTranscribing = false;
   String? _agoraError;
-  String _lastTranscript = '';
   final List<String> _transcriptLines = [];
   int? _remoteUid;
   String _channelId = '';
@@ -89,8 +88,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     AgoraService.onTranscriptUpdate = (text) {
       if (mounted) {
         setState(() {
-          _lastTranscript = text;
-          _transcriptLines.add('[${_formatTime(_sessionTime)}] You: $text');
+          _transcriptLines.add('[${_formatTime(_sessionTime)}] $text');
           // Keep max 50 lines
           if (_transcriptLines.length > 50) _transcriptLines.removeAt(0);
         });
