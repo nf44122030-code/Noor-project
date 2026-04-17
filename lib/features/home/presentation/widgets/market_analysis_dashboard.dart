@@ -292,7 +292,7 @@ class MarketAnalysisDashboard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.groups, color: AppColors.primary),
+              const Icon(Icons.groups, color: AppColors.primary),
               const SizedBox(width: 10),
               Text(
                 'Human Resources & Operations',
@@ -308,7 +308,7 @@ class MarketAnalysisDashboard extends StatelessWidget {
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 8),
-          Text('Salary Benchmarks (${\insight.financials.currency} / mo):', style: GoogleFonts.inter(fontSize: 12, color: Colors.grey)),
+          Text('Salary Benchmarks (${insight.financials.currency} / mo):', style: GoogleFonts.inter(fontSize: 12, color: Colors.grey)),
           const SizedBox(height: 12),
           ...insight.operations.roles.entries.map((role) {
             return Padding(

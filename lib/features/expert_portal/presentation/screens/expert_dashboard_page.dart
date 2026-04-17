@@ -30,7 +30,7 @@ class ExpertDashboardPage extends StatelessWidget {
               color: isDark ? Colors.white : Colors.black,
               fontWeight: FontWeight.w600,
             ),
-          ), //efsfsfiusygfsfg
+          ),
           actions: [
             IconButton(
               icon: Icon(Icons.logout,

@@ -276,99 +276,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildHomeContent(bool isDark) {
-    final userName = authController.userName;
-    return Stack(
-      children: [
-        // Background gradient orbs for depth
-        Positioned(
-          top: -60,
-          right: -40,
-          child: Container(
-            width: 220,
-            height: 220,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primary.withValues(alpha: isDark ? 0.06 : 0.08),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: 100,
-          left: -60,
-          child: Container(
-            width: 200,
-            height: 200,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.accent.withValues(alpha: isDark ? 0.04 : 0.06),
-            ),
-          ),
-        ),
 
-        SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 32, 24, 140),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [AppColors.accent, AppColors.primary],
-                ).createShader(bounds),
-                child: Text(
-                  'Welcome back,',
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                userName,
-                style: GoogleFonts.inter(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your intelligent business advisor is ready.',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  height: 1.6,
-                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
-                ),
-              ),
-              const SizedBox(height: 36),
-
-              // Quick stats row
-              Row(
-                children: [
-                  _buildStatCard(
-                    icon: Icons.smart_toy_rounded,
-                    label: 'AI Sessions',
-                    value: 'Mercury-2',
-                    isDark: isDark,
-                  ),
-                  const SizedBox(width: 12),
-                  _buildStatCard(
-                    icon: Icons.explore_rounded,
-                    label: 'Status',
-                    value: 'Online',
-                    isDark: isDark,
-                    valueColor: AppColors.accent,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildFloatingChatInput(bool isDark, {Key? key}) {
     return Positioned(
@@ -496,57 +404,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
 
-  Widget _buildStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required bool isDark,
-    Color? valueColor,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(AppRadius.card),
-          border: Border.all(
-            color: isDark ? AppColors.borderDark : AppColors.borderLight,
-            width: 1,
-          ),
-          boxShadow: isDark ? [] : AppColors.cardShadow(),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-              child: Icon(icon, size: 18, color: AppColors.primary),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: GoogleFonts.inter(fontSize: 11, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: valueColor ?? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildBottomNavigationBar(bool isDark) {
     return SafeArea(
