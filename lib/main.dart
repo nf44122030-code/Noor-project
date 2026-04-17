@@ -18,6 +18,7 @@ import 'core/localization/app_translations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'firebase_options.dart';
+import 'core/services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +33,11 @@ void main() async {
       providerApple: const AppleAppAttestProvider(),
       providerAndroid: const AndroidPlayIntegrityProvider(),
     );
+  }
+
+  // Request browser notification permission (web only)
+  if (kIsWeb) {
+    await PushNotificationService.initialize();
   }
 
   // Initialize GetX Controllers

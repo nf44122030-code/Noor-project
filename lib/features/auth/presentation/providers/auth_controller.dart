@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../../../../core/services/notification_listener.dart' as notif;
 
 class AuthController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -81,11 +82,15 @@ class AuthController extends GetxController {
     if (user != null) {
       _isEmailVerified.value = user.emailVerified;
       await _fetchUserProfile(user.uid);
+      // Start listening for push notifications
+      notif.NotificationListener.startListening();
     } else {
       _userProfile.clear();
       _expertProfile.clear();
       _isEmailVerified.value = false;
       _isExpertMode.value = false;
+      // Stop push notifications
+      notif.NotificationListener.stopListening();
     }
     _isLoading.value = false;
   }

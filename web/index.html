@@ -100,6 +100,45 @@
     function intellixIsSpeechSupported() {
       return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
     }
+
+    // ─── Browser Push Notification Helpers ───
+    function intellixRequestNotificationPermission() {
+      if (!('Notification' in window)) return 'unsupported';
+      if (Notification.permission === 'granted') return 'granted';
+      if (Notification.permission === 'denied') return 'denied';
+      Notification.requestPermission();
+      return 'requesting';
+    }
+
+    function intellixGetNotificationPermission() {
+      if (!('Notification' in window)) return 'unsupported';
+      return Notification.permission;
+    }
+
+    function intellixShowNotification(title, body, icon, tag) {
+      if (!('Notification' in window)) return false;
+      if (Notification.permission !== 'granted') return false;
+      try {
+        var n = new Notification(title, {
+          body: body,
+          icon: icon || '/icons/Icon-192.png',
+          tag: tag || 'intellix-' + Date.now(),
+          badge: '/icons/Icon-192.png',
+          vibrate: [200, 100, 200],
+          requireInteraction: false,
+        });
+        n.onclick = function() {
+          window.focus();
+          n.close();
+        };
+        // Auto-close after 8 seconds
+        setTimeout(function() { n.close(); }, 8000);
+        return true;
+      } catch(e) {
+        console.error('Notification error:', e);
+        return false;
+      }
+    }
   </script>
 </body>
 </html>
