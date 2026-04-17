@@ -48,10 +48,18 @@ class AgoraService {
   }
 
   static Future<void> joinChannel(String channelId, int uid) async {
+    final options = const ChannelMediaOptions(
+      clientRoleType: ClientRoleType.clientRoleBroadcaster,
+      channelProfile: ChannelProfileType.channelProfileCommunication,
+      publishMicrophoneTrack: true,
+      publishCameraTrack: true,
+      autoSubscribeAudio: true,
+      autoSubscribeVideo: true,
+    );
+
     try {
-      // Use local machine IP instead of localhost for mobile emulator support
-      // Usually 10.0.2.2 for Android or local IP
-      final tokenUrl = Uri.parse('http://localhost:3000/api/agora/token');
+      // Try fetching a token from the deployed backend
+      final tokenUrl = Uri.parse('https://noor-project-nine.vercel.app/api/agora/token');
       final response = await http.post(
         tokenUrl,
         headers: {'Content-Type': 'application/json'},
@@ -63,23 +71,23 @@ class AgoraService {
         final data = jsonDecode(response.body);
         token = data['token'] ?? "";
       } else {
-        debugPrint("Failed to fetch token. Using empty token (might fail in production).");
+        debugPrint("Failed to fetch token (${response.statusCode}). Using empty token.");
       }
 
       await _engine?.joinChannel(
         token: token,
         channelId: channelId,
         uid: uid,
-        options: const ChannelMediaOptions(),
+        options: options,
       );
     } catch (e) {
-      debugPrint("Agora connection error: $e");
-      // Fallback empty token connection
+      debugPrint("Agora token error: $e — joining with empty token");
+      // Fallback: join without a token (works in Agora Testing Mode)
       await _engine?.joinChannel(
         token: "",
         channelId: channelId,
         uid: uid,
-        options: const ChannelMediaOptions(),
+        options: options,
       );
     }
   }

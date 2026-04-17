@@ -39,6 +39,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   bool _showNotes = false;
   bool _isAgoraInitialized = false;
   int? _remoteUid;
+  String _channelId = '';
 
   int _sessionTime = 0;
   Timer? _timer;
@@ -180,6 +181,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         await AgoraService.joinChannel(channelId, 0);
         if (mounted) {
           setState(() {
+            _channelId = channelId;
             _sessionState = 'active';
             _isAgoraInitialized = true;
             _showChat = true;
@@ -447,7 +449,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                                   controller: VideoViewController.remote(
                                     rtcEngine: AgoraService.engine,
                                     canvas: VideoCanvas(uid: _remoteUid),
-                                    connection: const RtcConnection(channelId: "demo_channel"),
+                                    connection: RtcConnection(channelId: _channelId),
                                   ),
                                 )
                               // ── Waiting for expert placeholder ──
