@@ -64,14 +64,10 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     _expertName = widget.expertName ?? 'Expert Session';
     _expertTitle = widget.expertTitle ?? 'Consultation';
 
-    if (widget.initialCode != null && widget.initialCode!.length == 5) {
-      for (int i = 0; i < 5; i++) {
-        _codeControllers[i].text = widget.initialCode![i];
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _verifyCode();
-      });
-    }
+    // Temporarily bypass session code logic for testing
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _connectToSession(channelId: 'demo_channel', isClient: false);
+    });
 
     _pulseController = AnimationController(
       vsync: this,
