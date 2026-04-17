@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:excel/excel.dart' as xl;
 import 'package:file_picker/file_picker.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -36,6 +39,77 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     super.initState();
     _fadeCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 600));
+    _loadSavedData();
+  }
+
+  // ── Persistence ─────────────────────────────────────────────
+  Future<void> _loadSavedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedName = prefs.getString('analytics_file_name');
+      final savedExt = prefs.getString('analytics_file_ext');
+      
+      if (savedName != null && savedExt != null) {
+        setState(() {
+          _isLoading = true;
+          _fileName = savedName;
+        });
+        
+        final dir = await getApplicationDocumentsDirectory();
+        final file = File('${dir.path}/saved_analytics_data.$savedExt');
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          if (savedExt == 'csv') {
+            _parseCsv(bytes);
+          } else {
+            _parseExcel(bytes);
+          }
+        } else {
+          setState(() => _isLoading = false);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading saved data: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveDataLocally(Uint8List bytes, String ext, String name) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/saved_analytics_data.$ext');
+      await file.writeAsBytes(bytes);
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('analytics_file_name', name);
+      await prefs.setString('analytics_file_ext', ext);
+    } catch (e) {
+      debugPrint('Error saving data: $e');
+    }
+  }
+
+  Future<void> _deleteSavedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ext = prefs.getString('analytics_file_ext');
+      if (ext != null) {
+        final dir = await getApplicationDocumentsDirectory();
+        final file = File('${dir.path}/saved_analytics_data.$ext');
+        if (await file.exists()) await file.delete();
+      }
+      await prefs.remove('analytics_file_name');
+      await prefs.remove('analytics_file_ext');
+    } catch (e) {
+      debugPrint('Error deleting saved data: $e');
+    }
+
+    setState(() {
+      _charts.clear();
+      _rows.clear();
+      _headers.clear();
+      _fileName = null;
+      _rowCount = 0;
+    });
   }
 
   @override
@@ -86,6 +160,8 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
         _isPicking = false;
         _fileName = file.name;
       });
+
+      await _saveDataLocally(bytes, ext, file.name);
 
       // Parse file
       if (ext == 'csv') {
@@ -561,25 +637,40 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
                       ],
                     ),
                   ),
-                  // Upload new
+                  // Delete / Clear data
                   IconButton(
-                    onPressed: () {
-                      setState(() {
-                        _charts.clear();
-                        _rows.clear();
-                        _headers.clear();
-                        _fileName = null;
-                        _rowCount = 0;
-                      });
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+                          title: Text('Delete Data?', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                          content: Text('Are you sure you want to delete the uploaded data and charts?', style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Delete', style: TextStyle(color: AppColors.error)),
+                            ),
+                          ],
+                        ),
+                      );
+                      
+                      if (confirm == true) {
+                        await _deleteSavedData();
+                      }
                     },
                     icon: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: AppColors.error.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.upload_file_rounded,
-                          color: AppColors.primary, size: 22),
+                      child: const Icon(Icons.delete_outline_rounded,
+                          color: AppColors.error, size: 22),
                     ),
                   ),
                 ],
@@ -669,7 +760,6 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
 
   // ── Line Chart ──────────────────────────────────────────────
   Widget _buildLineChart(_ChartConfig config, int index, bool isDark) {
-    final color = _chartColors[index % _chartColors.length];
 
     // Build spots for each Y column
     final List<LineChartBarData> lines = [];
@@ -735,11 +825,8 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
               sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) =>
-                isDark ? const Color(0xFF1E3A5F) : Colors.white,
-          ),
+        lineTouchData: const LineTouchData(
+          touchTooltipData: LineTouchTooltipData(),
         ),
       ),
     );
