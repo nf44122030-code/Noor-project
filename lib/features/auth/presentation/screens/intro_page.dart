@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -15,8 +16,8 @@ class _IntroScreensState extends State<IntroScreens> {
 
   final List<IntroPageData> _pages = [
     IntroPageData(
-      title: 'Connect with elite\nindustry experts',
-      subtitle: 'Unlock your potential through\n1-on-1 personalized sessions.',
+      title: 'intro_title_1',
+      subtitle: 'intro_subtitle_1',
       type: PageType.imageGrid,
       images: [
         'https://images.unsplash.com/photo-1573164713988-8665fc963095?w=400', // Tech Professional
@@ -30,13 +31,13 @@ class _IntroScreensState extends State<IntroScreens> {
       ],
     ),
     IntroPageData(
-      title: 'Your personal AI\nintellectual assistant',
-      subtitle: 'Ask questions, brainstorm ideas,\nand expand your knowledge horizons.',
+      title: 'intro_title_2',
+      subtitle: 'intro_subtitle_2',
       type: PageType.promptInterface,
     ),
     IntroPageData(
-      title: 'A global network\nof knowledge',
-      subtitle: 'Join thousands of high-achieving\nprofessionals reshaping the future.',
+      title: 'intro_title_3',
+      subtitle: 'intro_subtitle_3',
       type: PageType.avatarGrid,
       images: [
         'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400', // Corporate Man
@@ -100,7 +101,7 @@ class _IntroScreensState extends State<IntroScreens> {
                   child: TextButton(
                     onPressed: () => context.go('/home'),
                     child: Text(
-                      'Skip',
+                      'skip'.tr,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 15,
@@ -152,19 +153,19 @@ class _IntroScreensState extends State<IntroScreens> {
                         color: AppColors.primary, // Themed Blue
                         borderRadius: BorderRadius.circular(28),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Continue',
-                            style: TextStyle(
+                            'continue_btn'.tr,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          SizedBox(width: 8),
-                          Icon(
+                          const SizedBox(width: 8),
+                          const Icon(
                             Icons.arrow_forward,
                             color: Colors.white,
                             size: 20,
@@ -325,7 +326,7 @@ class _ImageGridPageState extends State<ImageGridPage>
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
-                      widget.pageData.title,
+                      widget.pageData.title.tr,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
@@ -336,7 +337,7 @@ class _ImageGridPageState extends State<ImageGridPage>
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      widget.pageData.subtitle,
+                      widget.pageData.subtitle.tr,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.7),
@@ -640,7 +641,7 @@ class PromptInterfacePage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
-                      pageData.title,
+                      pageData.title.tr,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
@@ -651,7 +652,7 @@ class PromptInterfacePage extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      pageData.subtitle,
+                      pageData.subtitle.tr,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.7),
@@ -793,7 +794,7 @@ class _AvatarGridPageState extends State<AvatarGridPage>
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
-                      widget.pageData.title,
+                      widget.pageData.title.tr,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
@@ -804,7 +805,7 @@ class _AvatarGridPageState extends State<AvatarGridPage>
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      widget.pageData.subtitle,
+                      widget.pageData.subtitle.tr,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.7),

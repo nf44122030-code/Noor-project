@@ -34,7 +34,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email')),
+        SnackBar(content: Text('enter_valid_email'.tr)),
       );
     }
   }
@@ -74,11 +74,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                       onPressed: () => Navigator.pop(context),
                     ),
-                    const Expanded(
+                    Expanded(
                       child: Center(
                         child: Text(
-                          'RESET PASSWORD',
-                          style: TextStyle(
+                          'reset_password_title'.tr,
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -129,7 +129,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     return Column(
       children: [
         Text(
-          'Forgot Password?',
+          'forgot_password_q'.tr,
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
@@ -138,7 +138,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Enter your email to receive a reset link',
+          'enter_email_reset'.tr,
           style: TextStyle(
             fontSize: 14,
             color: colorScheme.onSurface.withValues(alpha: 0.6),
@@ -151,7 +151,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           keyboardType: TextInputType.emailAddress,
           style: TextStyle(color: colorScheme.onSurface),
           decoration: InputDecoration(
-            hintText: 'Email',
+            hintText: 'email'.tr,
             hintStyle: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5)),
             prefixIcon: Icon(Icons.email_outlined, color: colorScheme.primary),
             filled: true,
@@ -192,9 +192,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                : const Text(
-                    'SEND RESET LINK',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2, color: Colors.white),
+                : Text(
+                    'send_reset_link'.tr,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2, color: Colors.white),
                   ),
           ),
         ),
@@ -213,7 +213,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
         const SizedBox(height: 24),
         Text(
-          'Email Sent!',
+          'email_sent'.tr,
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
@@ -222,7 +222,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Check your inbox for password reset instructions',
+          'check_inbox_reset'.tr,
           style: TextStyle(
             fontSize: 14,
             color: colorScheme.onSurface.withValues(alpha: 0.6),

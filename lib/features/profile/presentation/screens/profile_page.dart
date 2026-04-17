@@ -133,7 +133,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile information updated')),
+        SnackBar(content: Text('profile_updated'.tr)),
       );
     }
   }
@@ -156,7 +156,7 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Update Profile Picture', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
+              Text('update_profile_pic'.tr, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
               const SizedBox(height: 16),
               ListTile(
                 leading: Container(
@@ -164,7 +164,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1), shape: BoxShape.circle),
                   child: Icon(Icons.camera_alt, color: iconColor),
                 ),
-                title: Text('Take a photo', style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+                title: Text('take_photo'.tr, style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.camera);
@@ -176,7 +176,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1), shape: BoxShape.circle),
                   child: Icon(Icons.photo_library, color: iconColor),
                 ),
-                title: Text('Choose from gallery', style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+                title: Text('choose_gallery'.tr, style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.gallery);
@@ -215,8 +215,8 @@ class _ProfilePageState extends State<ProfilePage> {
           SnackBar(
             content: Text(
               success
-                  ? 'Profile picture updated successfully'
-                  : (authController.lastErrorMessage ?? 'Failed to update profile picture'),
+                  ? 'profile_pic_success'.tr
+                  : (authController.lastErrorMessage ?? 'profile_pic_fail'.tr),
             ),
           ),
         );
@@ -284,9 +284,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
                           onPressed: () => Navigator.pop(context),
                         ),
-                        const Text(
-                          'PROFILE',
-                          style: TextStyle(
+                        Text(
+                          'profile_title'.tr,
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -353,7 +353,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                           const SizedBox(height: 8),
                           Text(
-                            'Member since January 2024',
+                            'member_since'.tr,
                             style: TextStyle(
                               fontSize: 14,
                               color: isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
@@ -388,7 +388,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 Text(
                                   authController.isPremium 
                                       ? '${authController.currentPlanName} Plan' 
-                                      : 'Starter Plan (Free)',
+                                      : 'starter_plan'.tr,
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -404,7 +404,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                           // Bio
                           _buildSectionCard(
-                            title: 'Bio',
+                            title: 'bio'.tr,
                             isDarkMode: isDarkMode,
                             child: _isEditing
                                 ? TextField(
@@ -441,7 +441,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ),
                                     ),
                                     child: Text(
-                                      _bioController.text.isEmpty ? 'No bio yet' : _bioController.text,
+                                      _bioController.text.isEmpty ? 'no_bio'.tr : _bioController.text,
                                       style: TextStyle(
                                         color: isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF4B5563),
                                       ),
@@ -452,13 +452,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
                           // Contact Information
                           _buildSectionCard(
-                            title: 'Contact Information',
+                            title: 'contact_info'.tr,
                             isDarkMode: isDarkMode,
                             child: Column(
                               children: [
                                 _buildProfileField(
                                   icon: Icons.email,
-                                  label: 'Email',
+                                  label: 'email'.tr,
                                   controller: _emailController,
                                   isEditing: _isEditing,
                                   isDarkMode: isDarkMode,
@@ -478,11 +478,11 @@ class _ProfilePageState extends State<ProfilePage> {
                           // Stats
                           Row(
                             children: [
-                              Expanded(child: _buildStatCard(label: 'Sessions', value: authController.sessionsCount.toString(), isDarkMode: isDarkMode)),
+                              Expanded(child: _buildStatCard(label: 'sessions'.tr, value: authController.sessionsCount.toString(), isDarkMode: isDarkMode)),
                               const SizedBox(width: 16),
-                              Expanded(child: _buildStatCard(label: 'Queries', value: authController.queriesCount.toString(), isDarkMode: isDarkMode)),
+                              Expanded(child: _buildStatCard(label: 'queries'.tr, value: authController.queriesCount.toString(), isDarkMode: isDarkMode)),
                               const SizedBox(width: 16),
-                              Expanded(child: _buildStatCard(label: 'Reports', value: authController.reportsCount.toString(), isDarkMode: isDarkMode)),
+                              Expanded(child: _buildStatCard(label: 'reports'.tr, value: authController.reportsCount.toString(), isDarkMode: isDarkMode)),
                             ],
                           ),
                           const SizedBox(height: 24),
@@ -527,7 +527,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                                     ),
                                     child: Text(
-                                      'Cancel',
+                                      'cancel'.tr,
                                       style: TextStyle(
                                         color: isDarkMode ? const Color(0xFFD1D5DB) : const Color(0xFF0369A1),
                                         fontSize: 16,
@@ -630,7 +630,7 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Phone', style: TextStyle(fontSize: 12, color: labelColor)),
+              Text('phone'.tr, style: TextStyle(fontSize: 12, color: labelColor)),
               const SizedBox(height: 4),
               if (_isEditing) ...[
                 Row(
@@ -676,7 +676,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           decoration: InputDecoration(
                             isDense: true,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            hintText: 'Phone number',
+                            hintText: 'phone_number'.tr,
                             hintStyle: TextStyle(color: labelColor, fontSize: 13),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
@@ -691,7 +691,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ] else ...[
                 Text(
-                  _formattedPhone.isEmpty ? 'Not set' : _formattedPhone,
+                  _formattedPhone.isEmpty ? 'not_set'.tr : _formattedPhone,
                   style: TextStyle(fontSize: 15, color: _formattedPhone.isEmpty ? labelColor : textColor),
                 ),
               ],
@@ -723,12 +723,12 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Location', style: TextStyle(fontSize: 12, color: labelColor)),
+              Text('location'.tr, style: TextStyle(fontSize: 12, color: labelColor)),
               const SizedBox(height: 4),
               if (_isEditing) ...[
                 // Country dropdown
                 _buildDropdown(
-                  hint: 'Select country',
+                  hint: 'select_country'.tr,
                   value: _kCountries.containsKey(_selectedCountry) ? _selectedCountry : null,
                   items: _kCountries.keys.toList(),
                   fillColor: fillColor,
@@ -750,7 +750,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 8),
                   // City dropdown
                   _buildDropdown(
-                    hint: 'Select city',
+                    hint: 'select_city'.tr,
                     value: validCity,
                     items: cities,
                     fillColor: fillColor,
@@ -763,7 +763,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ] else ...[
                 Text(
-                  _formattedLocation.isEmpty ? 'Not set' : _formattedLocation,
+                  _formattedLocation.isEmpty ? 'not_set'.tr : _formattedLocation,
                   style: TextStyle(fontSize: 15, color: _formattedLocation.isEmpty ? labelColor : textColor),
                 ),
               ],

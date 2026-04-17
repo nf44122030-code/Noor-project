@@ -268,7 +268,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
             ListTile(
               leading: Icon(Icons.photo_library_rounded,
                   color: isDark ? Colors.white : Colors.black),
-              title: Text('Photo Gallery',
+              title: Text('photo_gallery'.tr,
                   style: GoogleFonts.inter(
                       color: isDark ? Colors.white : Colors.black)),
               onTap: () async {
@@ -292,7 +292,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
             ListTile(
               leading: Icon(Icons.camera_alt_rounded,
                   color: isDark ? Colors.white : Colors.black),
-              title: Text('Take a Photo',
+              title: Text('take_photo_cap'.tr,
                   style: GoogleFonts.inter(
                       color: isDark ? Colors.white : Colors.black)),
               onTap: () async {
@@ -317,7 +317,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
             ListTile(
               leading: Icon(Icons.insert_drive_file_rounded,
                   color: isDark ? Colors.white : Colors.black),
-              title: Text('Documents (PDF, CSV, TXT)',
+              title: Text('documents_pdf_csv'.tr,
                   style: GoogleFonts.inter(
                       color: isDark ? Colors.white : Colors.black)),
               onTap: () async {
@@ -680,13 +680,13 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                       border: Border.all(
                           color: Colors.white.withValues(alpha: 0.35)),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.add_rounded, color: Colors.white, size: 14),
-                        SizedBox(width: 4),
-                        Text('New',
-                            style: TextStyle(
+                        const Icon(Icons.add_rounded, color: Colors.white, size: 14),
+                        const SizedBox(width: 4),
+                        Text('new_label'.tr,
+                            style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600)),
@@ -720,7 +720,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Text('Could not load history.',
+                      child: Text('load_history_error'.tr,
                           textAlign: TextAlign.center,
                           style: TextStyle(color: textSec, fontSize: 13)),
                     ),
@@ -740,7 +740,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                                 ? const Color(0xFF4B5563)
                                 : const Color(0xFFD1D5DB)),
                         const SizedBox(height: 12),
-                        Text('No conversations yet',
+                        Text('no_conversations'.tr,
                             style: TextStyle(fontSize: 13, color: textSec)),
                       ],
                     ),
@@ -977,18 +977,18 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('New Conversation'),
-        content: const Text('Start a fresh conversation with the AI?'),
+        title: Text('new_conversation'.tr),
+        content: Text('start_fresh_ai'.tr),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+              child: Text('cancel'.tr)),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _startNewChat(); // Uses the persisted session logic
             },
-            child: const Text('Start Fresh'),
+            child: Text('start_fresh'.tr),
           ),
         ],
       ),
@@ -1054,7 +1054,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                             : const Color(0xFFE5E7EB),
                       ),
                     ),
-                    child: Text('Cancel',
+                    child: Text('cancel'.tr,
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,
                           color: isDark
@@ -1075,7 +1075,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                           borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
-                    child: Text('Delete',
+                    child: Text('delete'.tr,
                         style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
                   ),
                 ),
@@ -1745,11 +1745,11 @@ class _MessageBubble extends StatelessWidget {
                       HapticFeedback.mediumImpact();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: const Row(children: [
-                            Icon(Icons.copy_rounded,
+                          content: Row(children: [
+                            const Icon(Icons.copy_rounded,
                                 color: Colors.white, size: 16),
-                            SizedBox(width: 8),
-                            Text('Copied to clipboard'),
+                            const SizedBox(width: 8),
+                            Text('copied_clipboard'.tr),
                           ]),
                           behavior: SnackBarBehavior.floating,
                           duration: const Duration(seconds: 2),

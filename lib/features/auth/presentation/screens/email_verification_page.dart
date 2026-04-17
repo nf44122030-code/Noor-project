@@ -80,9 +80,9 @@ class _EmailVerificationPageState extends State<EmailVerificationPage>
     if (!mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Verification email sent! Check your inbox.'),
-          backgroundColor: Color(0xFF059669),
+        SnackBar(
+          content: Text('verification_sent'.tr),
+          backgroundColor: const Color(0xFF059669),
         ),
       );
       setState(() => _resendCooldown = 60);
@@ -96,7 +96,7 @@ class _EmailVerificationPageState extends State<EmailVerificationPage>
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authController.lastErrorMessage ?? 'Failed to resend email.'),
+          content: Text(authController.lastErrorMessage ?? 'failed_resend_email'.tr),
           backgroundColor: Colors.red,
         ),
       );
@@ -113,10 +113,10 @@ class _EmailVerificationPageState extends State<EmailVerificationPage>
     if (!mounted) return;
     if (!verified) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Email not verified yet. Please check your inbox and click the link.'),
-          backgroundColor: Color(0xFFB45309),
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: Text('email_not_verified'.tr),
+          backgroundColor: const Color(0xFFB45309),
+          duration: const Duration(seconds: 3),
         ),
       );
     }
@@ -223,9 +223,9 @@ class _EmailVerificationPageState extends State<EmailVerificationPage>
                                 ? const [Color(0xFF0EA5E9), Color(0xFF06B6D4)]
                                 : const [Color(0xFF0369A1), Color(0xFF0EA5E9)],
                           ).createShader(bounds),
-                          child: const Text(
-                            'Verify Your Email',
-                            style: TextStyle(
+                          child: Text(
+                            'verify_email'.tr,
+                            style: const TextStyle(
                               fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white,
                             ),
                           ),
@@ -359,7 +359,7 @@ class _EmailVerificationPageState extends State<EmailVerificationPage>
                                   ? 'Sending...'
                                   : _resendCooldown > 0
                                       ? 'Resend in ${_resendCooldown}s'
-                                      : 'Resend Verification Email',
+                                      : 'resend_email'.tr,
                               style: TextStyle(
                                 fontSize: 15, fontWeight: FontWeight.w600,
                                 color: _resendCooldown > 0

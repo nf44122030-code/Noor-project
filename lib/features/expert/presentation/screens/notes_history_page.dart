@@ -49,7 +49,7 @@ class NotesHistoryPage extends StatelessWidget {
                 Expanded(
                   child: Center(
                     child: Text(
-                      'NOTES HISTORY',
+                      'notes_history_title'.tr,
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -244,7 +244,7 @@ class NotesHistoryPage extends StatelessWidget {
                                           child: Row(children: [
                                             Icon(Icons.share_rounded, size: 19, color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight),
                                             const SizedBox(width: 12),
-                                            Text('Share', style: GoogleFonts.inter(color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight)),
+                                            Text('share'.tr, style: GoogleFonts.inter(color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight)),
                                           ]),
                                         ),
                                         PopupMenuItem(
@@ -252,7 +252,7 @@ class NotesHistoryPage extends StatelessWidget {
                                           child: Row(children: [
                                             Icon(Icons.download_rounded, size: 19, color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight),
                                             const SizedBox(width: 12),
-                                            Text('Download', style: GoogleFonts.inter(color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight)),
+                                            Text('download'.tr, style: GoogleFonts.inter(color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight)),
                                           ]),
                                         ),
                                         PopupMenuItem(
@@ -260,7 +260,7 @@ class NotesHistoryPage extends StatelessWidget {
                                           child: Row(children: [
                                             const Icon(Icons.delete_rounded, size: 19, color: AppColors.error),
                                             const SizedBox(width: 12),
-                                            Text('Delete', style: GoogleFonts.inter(color: AppColors.error)),
+                                            Text('delete'.tr, style: GoogleFonts.inter(color: AppColors.error)),
                                           ]),
                                         ),
                                       ],
@@ -386,10 +386,10 @@ class NotesHistoryPage extends StatelessWidget {
               onPressed: () {
                 controller.deleteSession(sessionId);
                 context.pop();
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Session notes deleted')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('session_notes_deleted'.tr)));
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete'),
+              child: Text('delete'.tr),
             ),
           ],
         );

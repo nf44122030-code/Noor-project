@@ -132,6 +132,16 @@ class _AppWithRouterState extends State<AppWithRouter> {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
+          localeResolutionCallback: (locale, supportedLocales) {
+            // For Material layer (date pickers, etc.), fall back to 'ar' for Kurdish
+            // since 'ckb' has no MaterialLocalizations, but DON'T override GetX's .tr
+            final lang = locale?.languageCode ?? 'en';
+            if (lang == 'ckb') return const Locale('ar'); // closest RTL fallback for Material widgets
+            for (var supported in supportedLocales) {
+              if (supported.languageCode == lang) return supported;
+            }
+            return const Locale('en');
+          },
           builder: (context, child) {
             // Idle Session Timeout wraps the entire app
             Widget content = IdleTimeoutWrapper(

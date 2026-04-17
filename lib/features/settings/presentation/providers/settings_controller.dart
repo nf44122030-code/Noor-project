@@ -30,6 +30,9 @@ class SettingsController extends GetxController {
     pushNotifications.value    = prefs.getBool(_pushNotifKey)     ?? true;
     autoSave.value             = prefs.getBool(_autoSaveKey)      ?? true;
     currentLanguage.value      = prefs.getString(_languageKey)    ?? 'en';
+    
+    // Sync GetX's locale engine with the persisted language on startup
+    Get.updateLocale(Locale(currentLanguage.value));
   }
 
   Future<void> changeLanguage(String langCode) async {
@@ -37,8 +40,12 @@ class SettingsController extends GetxController {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_languageKey, langCode);
     
-    // Update GetX Locale
-    Get.updateLocale(Locale(langCode));
+    // Update GetX locale — use the correct Locale constructor
+    final newLocale = Locale(langCode);
+    Get.updateLocale(newLocale);
+    
+    // Force a complete widget tree rebuild to ensure all .tr calls re-evaluate
+    Future.microtask(() => Get.forceAppUpdate());
   }
 
   Future<void> setNotificationsEnabled(bool v) async {

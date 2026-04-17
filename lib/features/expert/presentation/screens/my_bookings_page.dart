@@ -21,7 +21,7 @@ class _MyBookingsPageState extends State<MyBookingsPage>
   bool _isLoading = true;
 
   late TabController _tabController;
-  final List<String> _tabs = ['All', 'Pending', 'Confirmed', 'Completed', 'Cancelled'];
+  final List<String> _tabs = ['All', 'Pending', 'Confirmed', 'completed'.tr, 'cancelled'.tr];
 
   @override
   void initState() {
@@ -68,8 +68,8 @@ class _MyBookingsPageState extends State<MyBookingsPage>
 
   String _statusLabel(String status) => switch (status) {
     'confirmed'  => 'Confirmed',
-    'completed'  => 'Completed',
-    'cancelled'  => 'Cancelled',
+    'completed'  => 'completed'.tr,
+    'cancelled'  => 'cancelled'.tr,
     _            => 'Pending',
   };
 
@@ -129,29 +129,29 @@ class _MyBookingsPageState extends State<MyBookingsPage>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(children: [
-          Icon(Icons.cancel_outlined, color: Color(0xFFDC2626)),
-          SizedBox(width: 8),
-          Text('Cancel Booking'),
+        title: Row(children: [
+          const Icon(Icons.cancel_outlined, color: Color(0xFFDC2626)),
+          const SizedBox(width: 8),
+          Text('cancel_booking_title'.tr),
         ]),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Are you sure you want to cancel this session?'),
+          Text('cancel_booking_confirm'.tr),
           const SizedBox(height: 12),
           TextField(
             controller: controller,
             decoration: InputDecoration(
-              hintText: 'Reason (optional)',
+              hintText: 'reason_optional'.tr,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             ),
             maxLines: 2,
           ),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep Booking')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('keep_booking'.tr)),
           ElevatedButton(
             onPressed: () { onReason(controller.text.trim()); Navigator.pop(ctx, true); },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
-            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.white)),
+            child: Text('yes_cancel'.tr, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -193,9 +193,9 @@ class _MyBookingsPageState extends State<MyBookingsPage>
                       IconButton(
                         icon: const Icon(Icons.arrow_back, color: Colors.white),
                         onPressed: () => context.pop()),
-                      const Expanded(
-                        child: Center(child: Text('MY BOOKINGS',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Center(child: Text('my_bookings_title'.tr,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
                                 color: Colors.white, letterSpacing: 2.5)))),
                       IconButton(
                         icon: const Icon(Icons.refresh_rounded, color: Colors.white),
@@ -345,7 +345,7 @@ class _MyBookingsPageState extends State<MyBookingsPage>
                   if (canConfirm) ...[
                     Expanded(
                       child: _actionButton(
-                        label: 'Confirm',
+                        label: 'confirm'.tr,
                         icon: Icons.check_circle_rounded,
                         color: const Color(0xFF059669),
                         onTap: () => _confirm(b),
@@ -356,7 +356,7 @@ class _MyBookingsPageState extends State<MyBookingsPage>
                   if (canComplete)
                     Expanded(
                       child: _actionButton(
-                        label: 'Mark Done',
+                        label: 'mark_done'.tr,
                         icon: Icons.task_alt_rounded,
                         color: const Color(0xFF2563EB),
                         onTap: () => _complete(b),
@@ -366,7 +366,7 @@ class _MyBookingsPageState extends State<MyBookingsPage>
                   if (canCancel)
                     Expanded(
                       child: _actionButton(
-                        label: 'Cancel',
+                        label: 'cancel'.tr,
                         icon: Icons.cancel_rounded,
                         color: const Color(0xFFDC2626),
                         onTap: () => _cancel(b),

@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import '../../../../core/services/agora_service.dart';
 import '../../../../core/services/vertex_ai_service.dart';
+import '../../../../core/services/firebase_service.dart';
 import '../../../../core/utils/permissions_helper.dart';
 import '../../../../core/theme/theme_controller.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -69,6 +70,14 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat();
+    
+    AgoraService.onRemoteUserJoined = (uid) {
+      if (mounted) setState(() => _remoteUid = uid);
+    };
+    AgoraService.onRemoteUserOffline = (uid) {
+      if (mounted && _remoteUid == uid) setState(() => _remoteUid = null);
+    };
+    
     _checkPermissionsOnLoad();
   }
 
@@ -78,18 +87,18 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Row(
                 children: [
-                   Icon(Icons.info_outline, color: Colors.white, size: 20),
-                   SizedBox(width: 12),
+                   const Icon(Icons.info_outline, color: Colors.white, size: 20),
+                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text('Camera and mic access needed for video calls'),
+                    child: Text('camera_mic_needed'.tr),
                   ),
                 ],
               ),
-              backgroundColor: Color(0xFF5B9FF3),
-              duration: Duration(seconds: 3),
+              backgroundColor: const Color(0xFF5B9FF3),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -108,13 +117,14 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     _timer?.cancel();
     _pulseController.dispose();
     _aiChatController.dispose();
+    AgoraService.dispose();
     super.dispose();
   }
 
   Future<void> _verifyCode() async {
     final code = _codeControllers.map((c) => c.text).join('');
     if (code.length != 5) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a 5-digit code'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('enter_5_digit_code'.tr), backgroundColor: Colors.red));
       return;
     }
 
@@ -130,11 +140,13 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
       if (query.docs.isEmpty) {
         if (!mounted) return;
         setState(() => _sessionState = 'code-entry');
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid session code or session not confirmed.'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('invalid_session_code'.tr), backgroundColor: Colors.red));
         return;
       }
 
-      final bookingId = query.docs.first.id;
+      final doc = query.docs.first;
+      final bookingId = doc.id;
+      final isClient = doc.data()['user_id'] == await FirebaseService().getEffectiveUid();
       final hasPermissions = await PermissionsHelper.hasVideoCallPermissions();
       
       if (!hasPermissions && mounted) {
@@ -142,13 +154,13 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
           context: context,
           onAllow: () async {
             final granted = await PermissionsHelper.requestVideoCallPermissions(context);
-            if (granted) _connectToSession(channelId: bookingId);
+            if (granted) _connectToSession(channelId: bookingId, isClient: isClient);
           },
-          onDemoMode: () => _connectToSession(channelId: bookingId, isDemo: true),
+          onDemoMode: () => _connectToSession(channelId: bookingId, isDemo: true, isClient: isClient),
           onCancel: () => setState(() => _sessionState = 'code-entry'),
         );
       } else {
-        _connectToSession(channelId: bookingId);
+        _connectToSession(channelId: bookingId, isClient: isClient);
       }
     } catch (e) {
       if (!mounted) return;
@@ -157,7 +169,11 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     }
   }
 
-  void _connectToSession({required String channelId, bool isDemo = false}) {
+  void _connectToSession({required String channelId, bool isDemo = false, bool isClient = false}) {
+    if (isClient) {
+      FirebaseService().initiateCall(channelId).catchError((e) => debugPrint('Error ringing expert: $e'));
+    }
+
     Future.delayed(const Duration(seconds: 1), () async {
       try {
         await AgoraService.initialize();
@@ -335,7 +351,39 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                 const SizedBox(height: 8),
                 Text('Enter the 5-digit code sent to your email', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: isDark ? AppColors.textSecondaryDark : const Color(0xFF7F8C8D))),
                 const SizedBox(height: 24),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: List.generate(5, (i) => SizedBox(width: 48, height: 56, child: TextField(controller: _codeControllers[i], focusNode: _focusNodes[i], textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black), keyboardType: TextInputType.number, maxLength: 1, decoration: InputDecoration(counterText: '', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: isDark ? BorderSide.none : const BorderSide()), filled: true, fillColor: isDark ? AppColors.surfaceDim : const Color(0xFFF9FAFB)), onChanged: (v) { if (v.isNotEmpty && i < 4) _focusNodes[i + 1].requestFocus(); if (v.isEmpty && i > 0) _focusNodes[i - 1].requestFocus(); })))),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
+                  children: List.generate(5, (i) => SizedBox(
+                    width: 54, 
+                    height: 64, 
+                    child: TextField(
+                      controller: _codeControllers[i], 
+                      focusNode: _focusNodes[i], 
+                      textAlign: TextAlign.center, 
+                      style: TextStyle(
+                        fontSize: 24, 
+                        fontWeight: FontWeight.bold, 
+                        color: isDark ? Colors.white : Colors.black
+                      ), 
+                      keyboardType: TextInputType.number, 
+                      maxLength: 1, 
+                      decoration: InputDecoration(
+                        counterText: '', 
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12), 
+                          borderSide: isDark ? BorderSide.none : const BorderSide(color: Color(0xFFE5E7EB))
+                        ), 
+                        filled: true, 
+                        fillColor: isDark ? AppColors.surfaceDim : const Color(0xFFF9FAFB)
+                      ), 
+                      onChanged: (v) { 
+                        if (v.isNotEmpty && i < 4) _focusNodes[i + 1].requestFocus(); 
+                        if (v.isEmpty && i > 0) _focusNodes[i - 1].requestFocus(); 
+                      }
+                    )
+                  ))
+                ),
                 const SizedBox(height: 24),
                 SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _verifyCode, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: const Text('Join Video Session', style: TextStyle(fontWeight: FontWeight.bold)))),
               ],
@@ -376,11 +424,133 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                   color: Colors.black87,
                   child: Stack(
                     children: [
-                      if (!_isVideoOn) Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Container(width: 100, height: 100, decoration: BoxDecoration(color: Colors.grey[800], shape: BoxShape.circle), child: const Icon(Icons.person, color: Colors.white, size: 60)), const SizedBox(height: 16), const Text('Camera Off', style: TextStyle(color: Colors.white70))]))
-                      else SizedBox.expand(child: _remoteUid != null ? AgoraVideoView(controller: VideoViewController.remote(rtcEngine: AgoraService.engine, canvas: VideoCanvas(uid: _remoteUid), connection: const RtcConnection(channelId: "demo_channel"))) : Image.network('https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=800&q=80', fit: BoxFit.cover)),
-                      Positioned(right: 16, top: 40, child: Container(width: 100, height: 140, decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withValues(alpha: 0.2))), child: ClipRRect(borderRadius: BorderRadius.circular(12), child: _isVideoOn && _isAgoraInitialized ? AgoraVideoView(controller: VideoViewController(rtcEngine: AgoraService.engine, canvas: const VideoCanvas(uid: 0))) : Container(color: Colors.grey[900], child: const Icon(Icons.videocam_off, color: Colors.white54))))),
-                      Positioned(top: 40, left: 16, child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)), child: Row(children: [Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle)), const SizedBox(width: 8), Text(_formatTime(_sessionTime), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))]))),
-                      Positioned(bottom: 16, left: 16, right: 16, child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(24)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.mic, color: Colors.white, size: 16), const SizedBox(width: 8), Text('$_expertName is speaking...', style: const TextStyle(color: Colors.white, fontSize: 14))]))),
+                      // ── Main video area (remote feed or waiting state) ──
+                      if (!_isVideoOn)
+                        Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 100, height: 100,
+                                decoration: BoxDecoration(color: Colors.grey[800], shape: BoxShape.circle),
+                                child: const Icon(Icons.person, color: Colors.white, size: 60),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text('Camera Off', style: TextStyle(color: Colors.white70)),
+                            ],
+                          ),
+                        )
+                      else
+                        SizedBox.expand(
+                          child: _remoteUid != null
+                              ? AgoraVideoView(
+                                  controller: VideoViewController.remote(
+                                    rtcEngine: AgoraService.engine,
+                                    canvas: VideoCanvas(uid: _remoteUid),
+                                    connection: const RtcConnection(channelId: "demo_channel"),
+                                  ),
+                                )
+                              // ── Waiting for expert placeholder ──
+                              : Container(
+                                  color: const Color(0xFF0A1929),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 120, height: 120,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            gradient: LinearGradient(
+                                              colors: [Colors.blue.shade700, Colors.cyan.shade400],
+                                            ),
+                                          ),
+                                          child: const Icon(Icons.person, color: Colors.white, size: 64),
+                                        ),
+                                        const SizedBox(height: 24),
+                                        Text(
+                                          _expertName,
+                                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          _expertTitle,
+                                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
+                                        ),
+                                        const SizedBox(height: 24),
+                                        SizedBox(
+                                          width: 28, height: 28,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Colors.cyan.shade400,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          'Waiting for expert to join...',
+                                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                        ),
+
+                      // ── Local camera preview (top-right) ──
+                      Positioned(
+                        right: 16, top: 40,
+                        child: Container(
+                          width: 100, height: 140,
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: _isVideoOn && _isAgoraInitialized
+                                ? AgoraVideoView(
+                                    controller: VideoViewController(
+                                      rtcEngine: AgoraService.engine,
+                                      canvas: const VideoCanvas(uid: 0),
+                                    ),
+                                  )
+                                : Container(color: Colors.grey[900], child: const Icon(Icons.videocam_off, color: Colors.white54)),
+                          ),
+                        ),
+                      ),
+
+                      // ── Timer badge (top-left) ──
+                      Positioned(
+                        top: 40, left: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                          child: Row(children: [
+                            Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle)),
+                            const SizedBox(width: 8),
+                            Text(_formatTime(_sessionTime), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          ]),
+                        ),
+                      ),
+
+                      // ── Speaking indicator (only when remote user is connected) ──
+                      if (_remoteUid != null)
+                        Positioned(
+                          bottom: 16, left: 16, right: 16,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(24)),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.mic, color: Colors.white, size: 16),
+                                const SizedBox(width: 8),
+                                Text('$_expertName is speaking...', style: const TextStyle(color: Colors.white, fontSize: 14)),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -395,8 +565,14 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildControlButton(icon: _isMuted ? Icons.mic_off : Icons.mic, color: _isMuted ? Colors.red : const Color(0xFF2C3E50), onPressed: () => setState(() => _isMuted = !_isMuted)),
-                _buildControlButton(icon: _isVideoOn ? Icons.videocam : Icons.videocam_off, color: !_isVideoOn ? Colors.red : const Color(0xFF2C3E50), onPressed: () => setState(() => _isVideoOn = !_isVideoOn)),
+                _buildControlButton(icon: _isMuted ? Icons.mic_off : Icons.mic, color: _isMuted ? Colors.red : const Color(0xFF2C3E50), onPressed: () {
+                  setState(() => _isMuted = !_isMuted);
+                  AgoraService.toggleMuteAudio(_isMuted);
+                }),
+                _buildControlButton(icon: _isVideoOn ? Icons.videocam : Icons.videocam_off, color: !_isVideoOn ? Colors.red : const Color(0xFF2C3E50), onPressed: () {
+                  setState(() => _isVideoOn = !_isVideoOn);
+                  AgoraService.toggleMuteVideo(!_isVideoOn);
+                }),
                 _buildControlButton(icon: Icons.call_end, color: Colors.red, size: 56, onPressed: _endSession),
                 _buildControlButton(icon: isNotesRecording ? (_showNotes ? Icons.note : Icons.note_add) : Icons.note_outlined, color: isNotesRecording ? Colors.amber : const Color(0xFF2C3E50), onPressed: _toggleAINotes, showBadge: isNotesRecording),
               ],

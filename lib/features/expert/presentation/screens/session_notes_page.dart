@@ -121,7 +121,7 @@ class SessionNotesPage extends StatelessWidget {
                   icon: const Icon(Icons.share, color: Colors.white),
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Sharing notes...')),
+                      SnackBar(content: Text('sharing_notes'.tr)),
                     );
                   },
                 ),
@@ -435,7 +435,7 @@ class SessionNotesPage extends StatelessWidget {
                         child: OutlinedButton.icon(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Notes downloaded')),
+                              SnackBar(content: Text('notes_downloaded'.tr)),
                             );
                           },
                           icon: Icon(Icons.download, color: accentBlue),
@@ -452,7 +452,7 @@ class SessionNotesPage extends StatelessWidget {
                         child: ElevatedButton.icon(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Notes sent to email')),
+                              SnackBar(content: Text('notes_sent_email'.tr)),
                             );
                           },
                           icon: const Icon(Icons.email, color: Colors.white),

@@ -248,7 +248,7 @@ class _HelpPageState extends State<HelpPage> {
                         onPressed: () => Navigator.pop(context),
                       ),
                       Text(
-                        'HELP CENTER',
+                        'help_center_title'.tr,
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -309,7 +309,7 @@ class _HelpPageState extends State<HelpPage> {
                         const SizedBox(height: 28),
 
                         // ── FAQ ─────────────────────────────────────────────
-                        _buildSectionHeader('FREQUENTLY ASKED QUESTIONS', isDark),
+                        _buildSectionHeader('faq_title'.tr, isDark),
                         const SizedBox(height: 12),
 
                         ...faqData.map((category) {
@@ -423,7 +423,7 @@ class _HelpPageState extends State<HelpPage> {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                'Still need help?',
+                                'still_need_help'.tr,
                                 style: GoogleFonts.inter(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
@@ -444,7 +444,7 @@ class _HelpPageState extends State<HelpPage> {
                                 onPressed: _openEmailSupport,
                                 icon: const Icon(Icons.email_rounded, size: 16),
                                 label: Text(
-                                  'Email Support',
+                                  'email_support'.tr,
                                   style: GoogleFonts.inter(
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -620,8 +620,8 @@ class _HelpPageState extends State<HelpPage> {
 
   // ── User Guide panel ────────────────────────────────────────────────────────
   Widget _buildUserGuidePanel(bool isDark) {
-    const sections = [
-      ('🚀', 'Getting Started', 'Create your account, set up your profile, and explore the dashboard.'),
+    final sections = [
+      ('🚀', 'getting_started'.tr, 'Create your account, set up your profile, and explore the dashboard.'),
       ('🤖', 'AI Assistant', 'Learn how to ask business questions and interpret AI responses.'),
       ('📅', 'Expert Sessions', 'Book, manage, and review your expert consultation sessions.'),
       ('📊', 'Explore & Trends', 'Navigate topics, articles, and business insight categories.'),
@@ -902,7 +902,7 @@ class _HelpPageState extends State<HelpPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Email Support',
+                    'email_support'.tr,
                     style: GoogleFonts.inter(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,

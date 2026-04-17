@@ -244,10 +244,10 @@ class _ExplorePageState extends State<ExplorePage> {
                       const SizedBox(width: 8),
                       Text(
                         _isRefreshingAI 
-                          ? 'Synthesizing New Insights...' 
+                          ? 'synthesizing'.tr 
                           : (_lastUpdated != null 
-                              ? 'Live Content · Updated ${_lastUpdated!.hour.toString().padLeft(2, '0')}:${_lastUpdated!.minute.toString().padLeft(2, '0')}'
-                              : 'Live Content'),
+                              ? '${'live_content'.tr} · ${_lastUpdated!.hour.toString().padLeft(2, '0')}:${_lastUpdated!.minute.toString().padLeft(2, '0')}'
+                              : 'live_content'.tr),
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -261,14 +261,14 @@ class _ExplorePageState extends State<ExplorePage> {
                 ),
 
               if (_featuredArticle != null && _searchQuery.isEmpty && _selectedCategory == 'All') ...[
-                _buildSectionTitleWithIcon('Daily Insights', Icons.auto_awesome_rounded, const Color(0xFFF59E0B), isDarkMode),
+                _buildSectionTitleWithIcon('daily_insights'.tr, Icons.auto_awesome_rounded, const Color(0xFFF59E0B), isDarkMode),
                 const SizedBox(height: 12),
                 _buildFeaturedArticleCard(_featuredArticle!, isDarkMode),
                 const SizedBox(height: 24),
               ],
 
               _buildSectionTitleWithIcon(
-                (_searchQuery.isEmpty && _selectedCategory == 'All') ? 'Trending Articles' : 'Discovered Insights', 
+                (_searchQuery.isEmpty && _selectedCategory == 'All') ? 'trending_articles'.tr : 'discovered_insights'.tr, 
                 (_searchQuery.isEmpty && _selectedCategory == 'All') ? Icons.trending_up_rounded : Icons.explore_rounded, 
                 const Color(0xFF0EA5E9), 
                 isDarkMode, 
@@ -353,7 +353,7 @@ class _ExplorePageState extends State<ExplorePage> {
           color: isDarkMode ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
         ),
         decoration: InputDecoration(
-          hintText: 'Search topics, articles, insights...',
+          hintText: 'search_topics'.tr,
           hintStyle: GoogleFonts.inter(
             fontSize: 14,
             color: isDarkMode ? AppColors.textHintDark : AppColors.textHintLight,
@@ -401,7 +401,7 @@ class _ExplorePageState extends State<ExplorePage> {
           TextButton(
             onPressed: () {},
             child: Text(
-              'View All',
+              'view_all'.tr,
               style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -652,7 +652,7 @@ class _ExplorePageState extends State<ExplorePage> {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'INSIGHT SUMMARY',
+                      'insight_summary'.tr,
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -680,7 +680,7 @@ class _ExplorePageState extends State<ExplorePage> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Back to Insights'),
+                        child: Text('back_to_insights'.tr),
                       ),
                     ),
                   ],

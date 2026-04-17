@@ -85,9 +85,9 @@ class _SettingsPageState extends State<SettingsPage> {
                         icon: const Icon(Icons.arrow_back, color: Colors.white),
                         onPressed: () => context.pop(),
                       ),
-                      const Text(
-                        'SETTINGS',
-                        style: TextStyle(
+                      Text(
+                        'settings'.tr,
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -112,7 +112,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // ===== ACCOUNT SECTION =====
-                        _buildSectionHeader('ACCOUNT', isDarkMode),
+                        _buildSectionHeader('account'.tr, isDarkMode),
                         const SizedBox(height: 12),
                         _buildCard(
                           isDarkMode: isDarkMode,
@@ -122,7 +122,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           children: [
                             _buildSettingsItem(
                               icon: Icons.person,
-                              label: 'Edit Profile',
+                              label: 'edit_profile'.tr,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
                               showBorder: true,
@@ -131,7 +131,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             _buildSettingsItem(
                               icon: Icons.email,
-                              label: 'Change Email',
+                              label: 'change_email'.tr,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
                               showBorder: true,
@@ -145,7 +145,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             _buildSettingsItem(
                               icon: Icons.lock,
-                              label: 'Change Password',
+                              label: 'change_password'.tr,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
                               showBorder: false,
@@ -162,7 +162,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 24),
 
                         // ===== ACCESS MANAGEMENT =====
-                        _buildSectionHeader('ACCESS MANAGEMENT', isDarkMode),
+                        _buildSectionHeader('access_management'.tr, isDarkMode),
                         const SizedBox(height: 12),
                         _buildCard(
                           isDarkMode: isDarkMode,
@@ -172,7 +172,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           children: [
                             _buildSettingsItem(
                               icon: Icons.manage_accounts_rounded,
-                              label: 'Assistants & Admins',
+                              label: 'assistants_admins'.tr,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
                               showBorder: false,
@@ -184,7 +184,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 24),
 
                         // ===== NOTIFICATIONS SECTION =====
-                        _buildSectionHeader('NOTIFICATIONS', isDarkMode),
+                        _buildSectionHeader('notifications'.tr, isDarkMode),
                         const SizedBox(height: 12),
                         _buildCard(
                           isDarkMode: isDarkMode,
@@ -194,7 +194,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           children: [
                             _buildToggleItem(
                               icon: Icons.notifications,
-                              label: 'All Notifications',
+                              label: 'all_notifications'.tr,
                               value: settingsController.notificationsEnabled.value,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
@@ -204,7 +204,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             _buildToggleItem(
                               icon: Icons.email,
-                              label: 'Email Notifications',
+                              label: 'email_notifications'.tr,
                               value: settingsController.emailNotifications.value,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
@@ -214,7 +214,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             _buildToggleItem(
                               icon: Icons.phone_android,
-                              label: 'Push Notifications',
+                              label: 'push_notifications'.tr,
                               value: settingsController.pushNotifications.value,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
@@ -227,7 +227,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 24),
 
                         // ===== APPEARANCE SECTION =====
-                        _buildSectionHeader('APPEARANCE', isDarkMode),
+                        _buildSectionHeader('appearance'.tr, isDarkMode),
                         const SizedBox(height: 12),
                         _buildCard(
                           isDarkMode: isDarkMode,
@@ -239,7 +239,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               icon: isDarkMode
                                   ? Icons.dark_mode
                                   : Icons.light_mode,
-                              label: 'Dark Mode',
+                              label: 'dark_mode'.tr,
                               value: isDarkMode,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
@@ -270,7 +270,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 24),
 
                         // ===== PREFERENCES SECTION =====
-                        _buildSectionHeader('PREFERENCES', isDarkMode),
+                        _buildSectionHeader('preferences'.tr, isDarkMode),
                         const SizedBox(height: 12),
                         _buildCard(
                           isDarkMode: isDarkMode,
@@ -280,7 +280,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           children: [
                             _buildToggleItem(
                               icon: Icons.download,
-                              label: 'Auto-Save Data',
+                              label: 'auto_save'.tr,
                               value: settingsController.autoSave.value,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
@@ -293,7 +293,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 24),
 
                         // ===== PRIVACY SECTION =====
-                        _buildSectionHeader('PRIVACY', isDarkMode),
+                        _buildSectionHeader('privacy'.tr, isDarkMode),
                         const SizedBox(height: 12),
                         _buildCard(
                           isDarkMode: isDarkMode,
@@ -303,7 +303,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           children: [
                             _buildSettingsItem(
                               icon: Icons.shield,
-                              label: 'Privacy Policy',
+                              label: 'privacy_policy'.tr,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
                               showBorder: true,
@@ -312,7 +312,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             _buildSettingsItem(
                               icon: Icons.description,
-                              label: 'Terms & Conditions',
+                              label: 'terms_conditions'.tr,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
                               showBorder: false,
@@ -324,7 +324,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 24),
 
                         // ===== SUPPORT SECTION =====
-                        _buildSectionHeader('SUPPORT', isDarkMode),
+                        _buildSectionHeader('support'.tr, isDarkMode),
                         const SizedBox(height: 12),
                         _buildCard(
                           isDarkMode: isDarkMode,
@@ -334,7 +334,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           children: [
                             _buildSettingsItem(
                               icon: Icons.help_outline,
-                              label: 'Help Center',
+                              label: 'help_center'.tr,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
                               showBorder: true,
@@ -343,7 +343,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             _buildSettingsItem(
                               icon: Icons.email,
-                              label: 'Contact Support',
+                              label: 'contact_support'.tr,
                               iconColor: iconColor,
                               isDarkMode: isDarkMode,
                               showBorder: false,
@@ -355,7 +355,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 24),
 
                         // ===== DANGER ZONE =====
-                        _buildSectionHeader('DANGER ZONE', isDarkMode),
+                        _buildSectionHeader('danger_zone'.tr, isDarkMode),
                         const SizedBox(height: 12),
                         _buildCard(
                           isDarkMode: isDarkMode,
@@ -378,7 +378,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                     const SizedBox(width: 12),
                                     Text(
-                                      'Delete Account',
+                                      'delete_account'.tr,
                                       style: TextStyle(
                                         fontSize: 16,
                                         color: Colors.red[600],
@@ -733,7 +733,7 @@ class _SettingsPageState extends State<SettingsPage> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              'Cancel',
+              'cancel'.tr,
               style: TextStyle(
                 color: isDarkMode
                     ? const Color(0xFF9CA3AF)
@@ -755,9 +755,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.white),
+            child: Text(
+              'delete'.tr,
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         ],
@@ -794,7 +794,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Icon(Icons.manage_accounts, color: isDarkMode ? const Color(0xFF0EA5E9) : const Color(0xFF0284C7)),
                 const SizedBox(width: 12),
                 Text(
-                  'Assistants & Admins',
+                  'assistants_admins'.tr,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,

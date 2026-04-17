@@ -93,9 +93,9 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                             const SizedBox(width: 12),
                             const Icon(Icons.notifications, color: Colors.white, size: 24),
                             const SizedBox(width: 12),
-                            const Text(
-                              'Notifications',
-                              style: TextStyle(
+                            Text(
+                              'notifications_title'.tr,
+                              style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -149,7 +149,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                                 color: isDarkMode ? const Color(0xFF0EA5E9) : const Color(0xFF0284C7),
                               ),
                               label: Text(
-                                'Mark all as read',
+                                'mark_all_read'.tr,
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: isDarkMode ? const Color(0xFF0EA5E9) : const Color(0xFF0284C7),
@@ -168,9 +168,9 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                               size: 16,
                               color: Colors.red,
                             ),
-                            label: const Text(
-                              'Clear all',
-                              style: TextStyle(
+                            label: Text(
+                              'clear_all'.tr,
+                              style: const TextStyle(
                                 fontSize: 14,
                                 color: Colors.red,
                               ),
@@ -228,7 +228,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
           ),
           const SizedBox(height: 16),
           Text(
-            'No notifications',
+            'no_notifications'.tr,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -237,7 +237,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
           ),
           const SizedBox(height: 8),
           Text(
-            'You\'re all caught up! Check back later for updates',
+            'all_caught_up'.tr,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,

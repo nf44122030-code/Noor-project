@@ -91,15 +91,15 @@ class _TrendsPageState extends State<TrendsPage> {
                           if (metrics != null)
                           Row(
                             children: [
-                              Expanded(child: _buildMetricCard(icon: Icons.attach_money, color: Colors.green, label: 'Revenue', value: metrics['revenue'] ?? '', change: 12.5, isDarkMode: isDarkMode)),
+                              Expanded(child: _buildMetricCard(icon: Icons.attach_money, color: Colors.green, label: 'revenue'.tr, value: metrics['revenue'] ?? '', change: 12.5, isDarkMode: isDarkMode)),
                               const SizedBox(width: 16),
-                              Expanded(child: _buildMetricCard(icon: Icons.people, color: Colors.blue, label: 'Users', value: metrics['users'] ?? '', change: 8.3, isDarkMode: isDarkMode)),
+                              Expanded(child: _buildMetricCard(icon: Icons.people, color: Colors.blue, label: 'users'.tr, value: metrics['users'] ?? '', change: 8.3, isDarkMode: isDarkMode)),
                             ],
                           ),
                           const SizedBox(height: 24),
 
                           _buildChartCard(
-                            title: 'Revenue Trend',
+                            title: 'revenue_trend'.tr,
                             isDarkMode: isDarkMode,
                             child: SizedBox(
                               height: 200,

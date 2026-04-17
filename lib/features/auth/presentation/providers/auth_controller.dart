@@ -142,7 +142,10 @@ class AuthController extends GetxController {
             .get();
         if (expertQuery.docs.isNotEmpty) {
           _isExpertMode.value = true;
-          _expertProfile.assignAll(expertQuery.docs.first.data());
+          _expertProfile.assignAll({
+            ...expertQuery.docs.first.data(),
+            'id': expertQuery.docs.first.id,
+          });
         } else {
           _isExpertMode.value = false;
           _expertProfile.clear();

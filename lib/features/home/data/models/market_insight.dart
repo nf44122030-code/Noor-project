@@ -56,12 +56,14 @@ class Financials {
   final int avgStartupCost;
   final int avgMonthlyOperationalCost;
   final String profitabilityMargin;
+  final Map<String, int> revenueProjections;
 
   Financials({
     required this.currency,
     required this.avgStartupCost,
     required this.avgMonthlyOperationalCost,
     required this.profitabilityMargin,
+    required this.revenueProjections,
   });
 
   factory Financials.fromJson(Map<String, dynamic> json) {
@@ -70,6 +72,7 @@ class Financials {
       avgStartupCost: json['avg_startup_cost'] ?? 0,
       avgMonthlyOperationalCost: json['avg_monthly_operational_cost'] ?? 0,
       profitabilityMargin: json['profitability_margin'] ?? '',
+      revenueProjections: Map<String, int>.from(json['revenue_projections'] ?? {}),
     );
   }
 }
@@ -94,16 +97,19 @@ class Operations {
 class Audience {
   final List<String> targetDemographics;
   final String marketSizeEst;
+  final Map<String, int> ageBreakdown;
 
   Audience({
     required this.targetDemographics,
     required this.marketSizeEst,
+    required this.ageBreakdown,
   });
 
   factory Audience.fromJson(Map<String, dynamic> json) {
     return Audience(
       targetDemographics: List<String>.from(json['target_demographics'] ?? []),
       marketSizeEst: json['market_size_est'] ?? '',
+      ageBreakdown: Map<String, int>.from(json['age_breakdown'] ?? {}),
     );
   }
 }

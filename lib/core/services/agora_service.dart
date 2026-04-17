@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -8,6 +10,9 @@ class AgoraService {
   
   static RtcEngine? _engine;
   static final List<String> _transcriptBuffer = [];
+  
+  static Function(int)? onRemoteUserJoined;
+  static Function(int)? onRemoteUserOffline;
 
   static Future<void> initialize() async {
     if (_engine != null) return;
@@ -30,9 +35,11 @@ class AgoraService {
         },
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
           debugPrint("Agora: User joined $remoteUid");
+          if (onRemoteUserJoined != null) onRemoteUserJoined!(remoteUid);
         },
         onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
           debugPrint("Agora: User offline $remoteUid");
+          if (onRemoteUserOffline != null) onRemoteUserOffline!(remoteUid);
         },
         // In a real production app, we would use Agora's Speech-to-Text (STT) 
         // extensions to populate the transcriptBuffer in real-time.
@@ -41,17 +48,61 @@ class AgoraService {
   }
 
   static Future<void> joinChannel(String channelId, int uid) async {
-    await _engine?.joinChannel(
-      token: "", // In production, generate this on your backend
-      channelId: channelId,
-      uid: uid,
-      options: const ChannelMediaOptions(),
-    );
+    try {
+      // Use local machine IP instead of localhost for mobile emulator support
+      // Usually 10.0.2.2 for Android or local IP
+      final tokenUrl = Uri.parse('http://localhost:3000/api/agora/token');
+      final response = await http.post(
+        tokenUrl,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'channelName': channelId, 'uid': uid}),
+      ).timeout(const Duration(seconds: 5));
+
+      String token = "";
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        token = data['token'] ?? "";
+      } else {
+        debugPrint("Failed to fetch token. Using empty token (might fail in production).");
+      }
+
+      await _engine?.joinChannel(
+        token: token,
+        channelId: channelId,
+        uid: uid,
+        options: const ChannelMediaOptions(),
+      );
+    } catch (e) {
+      debugPrint("Agora connection error: $e");
+      // Fallback empty token connection
+      await _engine?.joinChannel(
+        token: "",
+        channelId: channelId,
+        uid: uid,
+        options: const ChannelMediaOptions(),
+      );
+    }
+  }
+
+  static Future<void> toggleMuteAudio(bool isMuted) async {
+    await _engine?.muteLocalAudioStream(isMuted);
+  }
+
+  static Future<void> toggleMuteVideo(bool isMuted) async {
+    await _engine?.muteLocalVideoStream(isMuted);
   }
 
   static Future<void> leaveChannel() async {
     await _engine?.leaveChannel();
     _transcriptBuffer.clear();
+  }
+
+  static Future<void> dispose() async {
+    await _engine?.leaveChannel();
+    await _engine?.release();
+    _engine = null;
+    onRemoteUserJoined = null;
+    onRemoteUserOffline = null;
   }
 
   /// Adds a snippet to the live transcript (usually called by an STT listener)

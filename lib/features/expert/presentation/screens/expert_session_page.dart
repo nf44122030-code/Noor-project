@@ -135,16 +135,15 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
       notes:       _notesController.text.trim(),
     );
 
-    // 3 - Send email confirmation to the user (Acknowledging request)
-    await EmailService.sendConfirmationEmail(
-      expertName:  _selectedExpert!.name,
-      expertEmail: _selectedExpert!.email,
+    // 3 – Send "booking received" email to the user (pending – no code yet)
+    await EmailService.sendBookingReceivedEmail(
       userName:    user?.displayName ?? _authController.userName,
       userEmail:   user?.email ?? _authController.userEmail,
+      expertName:  _selectedExpert!.name,
       sessionDate: dateStr,
       sessionTime: _selectedSlot!,
       duration:    _duration,
-      sessionCode: 'TBD upon expert confirmation',
+      notes:       _notesController.text.trim(),
     );
 
     setState(() {
@@ -229,10 +228,10 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
                 onPressed: () => context.pop(),
               ),
-              const Expanded(
+              Expanded(
                 child: Center(
-                  child: Text('EXPERT SESSIONS',
-                      style: TextStyle(
+                  child: Text('expert_sessions_title'.tr,
+                      style: const TextStyle(
                           fontSize: 15, fontWeight: FontWeight.w600,
                           color: Colors.white, letterSpacing: 2.5)),
                 ),
@@ -255,7 +254,7 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('No experts available.',
+                          Text('no_experts'.tr,
                               style: TextStyle(color: isDark ? Colors.white54 : Colors.black38)),
                           if (_errorMessage != null) ...[
                             const SizedBox(height: 8),
@@ -468,7 +467,7 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: Text('Close',
+                  child: Text('close'.tr,
                       style: TextStyle(color: isDark ? Colors.white60 : Colors.black54)),
                 ),
               ),
@@ -483,8 +482,8 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
                   child: ElevatedButton.icon(
                     onPressed: () => setState(() { _showDetail = false; _showBooking = true; }),
                     icon: const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 18),
-                    label: const Text('Book a Session',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    label: Text('book_session'.tr,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent, shadowColor: Colors.transparent,
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -529,9 +528,9 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Book a Session',
-                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text('with ${expert.name}',
+                      Text('book_session'.tr,
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('${'with_expert'.tr} ${expert.name}',
                           style: const TextStyle(color: Colors.white70, fontSize: 12)),
                     ],
                   ),
@@ -741,8 +740,8 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
                     child: _isSending
                         ? const SizedBox(height: 20, width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Text('Confirm & Send Request',
-                            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                        : Text('confirm_send_request'.tr,
+                            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ),
@@ -780,8 +779,8 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
                   child: const Icon(Icons.check_rounded, color: Colors.white, size: 44),
                 ),
                 const SizedBox(height: 20),
-                const Text('Session Requested!',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                Text('session_requested'.tr,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
                 Text(
                   'Your request has been sent to ${expert?.name ?? 'the expert'}\non $dateStr at $_selectedSlot.',

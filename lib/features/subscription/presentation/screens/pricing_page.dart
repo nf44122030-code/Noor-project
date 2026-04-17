@@ -172,7 +172,7 @@ class _PricingPageState extends State<PricingPage> {
                 child: _isLoading 
                   ? const Center(child: CircularProgressIndicator())
                   : _plans.isEmpty 
-                      ? const Center(child: Text('No plans available at the moment'))
+                      ? Center(child: Text('no_plans'.tr))
                       : Stack(
                           children: [
                             _buildContent(isDarkMode),
@@ -213,7 +213,7 @@ class _PricingPageState extends State<PricingPage> {
           Expanded(
             child: Center(
               child: Text(
-                'PRICING',
+                'pricing_title'.tr,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -270,7 +270,7 @@ class _PricingPageState extends State<PricingPage> {
           // Header special offer
           Center(
             child: Text(
-              'SPECIAL OFFER',
+              'special_offer'.tr,
               style: GoogleFonts.inter(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -310,7 +310,7 @@ class _PricingPageState extends State<PricingPage> {
               Expanded(
                 flex: 2, // Slightly smaller header to make room for 3 columns if needed
                 child: Text(
-                  'Comparison',
+                  'comparison'.tr,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -387,7 +387,7 @@ class _PricingPageState extends State<PricingPage> {
       children: [
         Center(
           child: Text(
-            'Select your plan',
+            'select_your_plan'.tr,
             style: GoogleFonts.inter(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -571,7 +571,7 @@ class _PricingPageState extends State<PricingPage> {
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
           ),
-          child: Text('Current Plan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)),
+          child: Text('current_plan'.tr, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)),
         ),
       );
     }

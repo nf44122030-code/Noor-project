@@ -30,6 +30,7 @@ app.use('/api/trends', require('./routes/trends'));
 app.use('/api/plans', require('./routes/plans'));
 app.use('/api/support', require('./routes/support'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/agora', require('./routes/agora'));
 
 // Health check
 app.get('/api/health', (req, res) => {

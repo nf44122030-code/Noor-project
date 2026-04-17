@@ -98,7 +98,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
             const SizedBox(height: 20),
             Text(
-              'Quick Actions',
+              'quick_actions'.tr,
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -108,8 +108,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             const SizedBox(height: 20),
             _buildQuickAction(
               icon: Icons.video_call_rounded,
-              title: 'Book Expert Session',
-              subtitle: 'Schedule a video call with an expert',
+              title: 'book_expert_session'.tr,
+              subtitle: 'schedule_video_call'.tr,
               isDark: isDark,
               onTap: () {
                 Navigator.pop(context);
@@ -118,8 +118,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
             _buildQuickAction(
               icon: Icons.auto_awesome_rounded,
-              title: 'Session AI Notes',
-              subtitle: 'View your AI-generated session notes',
+              title: 'session_ai_notes'.tr,
+              subtitle: 'view_ai_notes'.tr,
               isDark: isDark,
               onTap: () {
                 Navigator.pop(context);
@@ -128,8 +128,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
             _buildQuickAction(
               icon: Icons.videocam_rounded,
-              title: 'Start Video Session',
-              subtitle: 'Join a live consultation now',
+              title: 'start_video_session'.tr,
+              subtitle: 'join_live_consultation'.tr,
               isDark: isDark,
               onTap: () {
                 Navigator.pop(context);
@@ -259,7 +259,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
           Text(
-            _currentPage == 'explore' ? 'EXPLORE' : 'INTELLIX',
+            _currentPage == 'explore' ? 'explore'.tr.toUpperCase() : 'INTELLIX',
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -319,7 +319,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
                     ),
                     decoration: InputDecoration(
-                      hintText: 'Ask about your business...',
+                      hintText: 'ask_about_business'.tr,
                       hintStyle: GoogleFonts.inter(
                         fontSize: 14,
                         color: isDark ? AppColors.textHintDark : AppColors.textHintLight,
@@ -434,8 +434,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(icon: Icons.home_rounded, label: 'Home', index: 0, isDark: isDark),
-                _buildNavItem(icon: Icons.explore_rounded, label: 'Explore', index: 1, isDark: isDark),
+                _buildNavItem(icon: Icons.home_rounded, label: 'home'.tr, index: 0, isDark: isDark),
+                _buildNavItem(icon: Icons.explore_rounded, label: 'explore'.tr, index: 1, isDark: isDark),
                 // Center + button
                 GestureDetector(
                   onTap: () => _onItemTapped(2),
@@ -456,8 +456,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     child: const Icon(Icons.add_rounded, color: Colors.white, size: 26),
                   ),
                 ),
-                _buildNavItem(icon: Icons.smart_toy_rounded, label: 'AI Chat', index: 3, isDark: isDark),
-                _buildNavItem(icon: Icons.workspace_premium_rounded, label: 'Pricing', index: 4, isDark: isDark),
+                _buildNavItem(icon: Icons.smart_toy_rounded, label: 'ai_chat'.tr, index: 3, isDark: isDark),
+                _buildNavItem(icon: Icons.workspace_premium_rounded, label: 'pricing'.tr, index: 4, isDark: isDark),
               ],
             ),
           ),
@@ -576,7 +576,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         ),
                         const SizedBox(width: 14),
                         Text(
-                          isDark ? 'Dark Mode' : 'Light Mode',
+                          isDark ? 'dark_mode'.tr : 'light_mode'.tr,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -594,16 +594,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   ),
                 ),
                 const SizedBox(height: 8),
-                _buildDrawerItem(icon: Icons.person_rounded, title: 'Profile', isDark: isDark, onTap: () => context.push('/profile')),
-                _buildDrawerItem(icon: Icons.settings_rounded, title: 'Settings', isDark: isDark, onTap: () => context.push('/settings')),
-                _buildDrawerItem(icon: Icons.help_outline_rounded, title: 'Help & Support', isDark: isDark, onTap: () => context.push('/help')),
+                _buildDrawerItem(icon: Icons.person_rounded, title: 'profile'.tr, isDark: isDark, onTap: () => context.push('/profile')),
+                _buildDrawerItem(icon: Icons.settings_rounded, title: 'settings'.tr, isDark: isDark, onTap: () => context.push('/settings')),
+                _buildDrawerItem(icon: Icons.help_outline_rounded, title: 'help_support'.tr, isDark: isDark, onTap: () => context.push('/help')),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   child: Divider(color: isDark ? AppColors.borderDark : AppColors.borderLight),
                 ),
                 _buildDrawerItem(
                   icon: Icons.logout_rounded,
-                  title: 'Logout',
+                  title: 'logout'.tr,
                   isDark: isDark,
                   color: AppColors.error,
                   onTap: () {

@@ -56,7 +56,7 @@ class _SignUpPageState extends State<SignUpPage> {
   Future<void> _handleSignUp() async {
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
+        SnackBar(content: Text('passwords_mismatch'.tr)),
       );
       return;
     }
@@ -69,12 +69,12 @@ class _SignUpPageState extends State<SignUpPage> {
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Signup Successful!')),
+        SnackBar(content: Text('signup_success'.tr)),
       );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authController.lastErrorMessage ?? 'Registration failed. Please check your internet and try again.'),
+          content: Text(authController.lastErrorMessage ?? 'registration_failed'.tr),
           backgroundColor: Colors.red,
         ),
       );
@@ -151,7 +151,7 @@ class _SignUpPageState extends State<SignUpPage> {
                             colors: AppColors.gradientAccent,
                           ).createShader(bounds),
                           child: Text(
-                            'Create Account',
+                            'create_account'.tr,
                             style: GoogleFonts.inter(
                               fontSize: 28,
                               fontWeight: FontWeight.w800,
@@ -161,7 +161,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Join Intellix today',
+                          'join_get_started'.tr,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: isDarkMode ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
@@ -174,26 +174,26 @@ class _SignUpPageState extends State<SignUpPage> {
                           children: [
                             _buildTextField(
                               controller: _nameController,
-                              hintText: 'Full Name',
+                              hintText: 'full_name'.tr,
                               isDarkMode: isDarkMode,
                             ),
                             const SizedBox(height: 10),
                             _buildTextField(
                               controller: _emailController,
-                              hintText: 'Email',
+                              hintText: 'email'.tr,
                               keyboardType: TextInputType.emailAddress,
                               isDarkMode: isDarkMode,
                             ),
                             const SizedBox(height: 10),
                             _buildTextField(
                               controller: _usernameController,
-                              hintText: 'Username',
+                              hintText: 'username'.tr,
                               isDarkMode: isDarkMode,
                             ),
                             const SizedBox(height: 10),
                             _buildTextField(
                               controller: _passwordController,
-                              hintText: 'Password',
+                              hintText: 'password'.tr,
                               isPassword: true,
                               isDarkMode: isDarkMode,
                             ),
@@ -205,7 +205,7 @@ class _SignUpPageState extends State<SignUpPage> {
                             const SizedBox(height: 10),
                             _buildTextField(
                               controller: _confirmPasswordController,
-                              hintText: 'Confirm Password',
+                              hintText: 'confirm_password'.tr,
                               isPassword: true,
                               isDarkMode: isDarkMode,
                             ),
@@ -237,7 +237,7 @@ class _SignUpPageState extends State<SignUpPage> {
                                         ),
                                       )
                                     : Text(
-                                        'Create Account',
+                                        'create_account'.tr,
                                         style: GoogleFonts.inter(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w700,
@@ -257,7 +257,7 @@ class _SignUpPageState extends State<SignUpPage> {
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 12),
                                   child: Text(
-                                    'or continue with',
+                                    'or_continue_with'.tr,
                                     style: GoogleFonts.inter(
                                       fontSize: 13,
                                       color: isDarkMode ? AppColors.textHintDark : AppColors.textHintLight,
@@ -334,7 +334,7 @@ class _SignUpPageState extends State<SignUpPage> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  'Already have an account? ',
+                                  '${'have_account'.tr} ',
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
                                     color: isDarkMode ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
@@ -343,7 +343,7 @@ class _SignUpPageState extends State<SignUpPage> {
                                 GestureDetector(
                                   onTap: () => context.pop(),
                                   child: Text(
-                                    'Sign In',
+                                    'sign_in'.tr,
                                     style: GoogleFonts.inter(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,

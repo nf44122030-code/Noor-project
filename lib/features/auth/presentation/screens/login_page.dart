@@ -33,12 +33,12 @@ class _LoginPageState extends State<LoginPage> {
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login Successful!')),
+        SnackBar(content: Text('login_success'.tr)),
       );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authController.lastErrorMessage ?? 'Invalid credentials'),
+          content: Text(authController.lastErrorMessage ?? 'invalid_credentials'.tr),
           backgroundColor: Colors.red,
         ),
       );
@@ -124,7 +124,7 @@ class _LoginPageState extends State<LoginPage> {
                             colors: AppColors.gradientAccent,
                           ).createShader(bounds),
                           child: Text(
-                            'Welcome Back',
+                            'welcome_back'.tr,
                             style: GoogleFonts.inter(
                               fontSize: 28,
                               fontWeight: FontWeight.w800,
@@ -134,7 +134,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Sign in to continue',
+                          'sign_in_continue'.tr,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: isDarkMode
@@ -149,13 +149,13 @@ class _LoginPageState extends State<LoginPage> {
                           children: [
                             _buildTextField(
                               controller: _emailController,
-                              hintText: 'Email',
+                              hintText: 'email'.tr,
                               isDarkMode: isDarkMode,
                             ),
                             const SizedBox(height: 16),
                             _buildTextField(
                               controller: _passwordController,
-                              hintText: 'Password',
+                              hintText: 'password'.tr,
                               isPassword: true,
                               isDarkMode: isDarkMode,
                             ),
@@ -167,7 +167,7 @@ class _LoginPageState extends State<LoginPage> {
                               child: TextButton(
                                 onPressed: () => context.push('/forgot-password'),
                                 child: Text(
-                                  'Forgot Password?',
+                                  'forgot_password'.tr,
                                   style: GoogleFonts.inter(
                                     color: AppColors.primary,
                                     fontWeight: FontWeight.w600,
@@ -206,7 +206,7 @@ class _LoginPageState extends State<LoginPage> {
                                         ),
                                       )
                                     : Text(
-                                        'Sign In',
+                                        'sign_in'.tr,
                                             style: GoogleFonts.inter(
                                               fontSize: 15,
                                               fontWeight: FontWeight.w700,
@@ -230,7 +230,7 @@ class _LoginPageState extends State<LoginPage> {
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 12),
                                   child: Text(
-                                    'or continue with',
+                                    'or_continue_with'.tr,
                                     style: GoogleFonts.inter(
                                       fontSize: 13,
                                       color: isDarkMode
@@ -327,7 +327,7 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ),
                                 child: Text(
-                                  'Continue as Guest',
+                                  'continue_guest'.tr,
                                   style: GoogleFonts.inter(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
@@ -353,7 +353,7 @@ class _LoginPageState extends State<LoginPage> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      'Are you an Expert? Sign up below using your registered email to access your dashboard.',
+                                      'expert_hint'.tr,
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         color: isDarkMode ? const Color(0xFFD1D5DB) : const Color(0xFF4B5563),
@@ -371,7 +371,7 @@ class _LoginPageState extends State<LoginPage> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  'Don\'t have an account? ',
+                                  '${'no_account'.tr} ',
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
                                     color: isDarkMode
@@ -382,7 +382,7 @@ class _LoginPageState extends State<LoginPage> {
                                 GestureDetector(
                                   onTap: () => context.push('/signup'),
                                   child: Text(
-                                    'Sign Up',
+                                    'sign_up'.tr,
                                     style: GoogleFonts.inter(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,

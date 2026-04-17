@@ -8,7 +8,7 @@ import 'vertex_ai_service.dart';
 import '../../features/expert/data/models/expert.dart';
 import '../../features/notification/data/models/notification_model.dart';
 import '../../features/ai/data/models/message.dart';
-
+import '../utils/market_data_seeder.dart';
 
 class FirebaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -17,11 +17,18 @@ class FirebaseService {
   // --- Market Insights ---
   Future<List<Map<String, dynamic>>> getMarketInsights() async {
     try {
-      final snapshot = await _firestore.collection('iraq_market_insights').get();
-      return snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
+      final snapshot =
+          await _firestore.collection('iraq_market_insights').get();
+      final docs = snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
+      
+      if (docs.isEmpty) {
+        debugPrint('⚠️ Fetch returned 0 items. Supplying fallback local definitions.');
+        return MarketDataSeeder.generateInsights();
+      }
+      return docs;
     } catch (e) {
-      debugPrint('Error fetching market insights: \$e');
-      return [];
+      debugPrint('Error fetching market insights (likely unauthenticated): $e. Using local data fallback.');
+      return MarketDataSeeder.generateInsights();
     }
   }
 
@@ -41,7 +48,8 @@ class FirebaseService {
 
     try {
       if (user.email != null) {
-        final assistantDoc = await _firestore.collection('assistants').doc(user.email).get();
+        final assistantDoc =
+            await _firestore.collection('assistants').doc(user.email).get();
         if (assistantDoc.exists) {
           final data = assistantDoc.data();
           if (data != null && data['master_uid'] != null) {
@@ -57,7 +65,7 @@ class FirebaseService {
     _cachedEffectiveUid = user.uid;
     return _cachedEffectiveUid;
   }
-  
+
   /// Clears the cached UID (e.g., on sign out)
   void clearEffectiveUidCache() {
     _cachedEffectiveUid = null;
@@ -67,7 +75,7 @@ class FirebaseService {
   Future<void> addAssistant(String email) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('Must be logged in to add an assistant');
-    
+
     // We register the assistant using their email as the Document ID.
     // So when they log in, they can immediately inherit the master's UID.
     await _firestore.collection('assistants').doc(email).set({
@@ -79,7 +87,9 @@ class FirebaseService {
 
   Future<void> removeAssistant(String email) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('Must be logged in to remove an assistant');
+    if (user == null) {
+      throw Exception('Must be logged in to remove an assistant');
+    }
 
     // Make sure we only remove if it belongs to this master (security)
     final doc = await _firestore.collection('assistants').doc(email).get();
@@ -97,7 +107,9 @@ class FirebaseService {
         .collection('assistants')
         .where('master_uid', isEqualTo: effectiveUid)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => {'email': doc.id, ...doc.data()}).toList());
+        .map((snapshot) => snapshot.docs
+            .map((doc) => {'email': doc.id, ...doc.data()})
+            .toList());
   }
 
   // --- Experts ---
@@ -106,20 +118,23 @@ class FirebaseService {
       debugPrint('🔍 [FIREBASE] Attempting to fetch experts...');
 
       final snapshot = await _firestore.collection('experts').get();
-      debugPrint('🔍 [FIREBASE] Snapshot received. Document count: ${snapshot.docs.length}');
+      debugPrint(
+          '🔍 [FIREBASE] Snapshot received. Document count: ${snapshot.docs.length}');
 
       final List<Expert> experts = [];
-      
+
       for (final doc in snapshot.docs) {
         try {
           final data = doc.data();
-          debugPrint('🔍 [FIREBASE] Parsing expert: ${doc.id} | Data: ${data.keys.take(5).toList()}...');
+          debugPrint(
+              '🔍 [FIREBASE] Parsing expert: ${doc.id} | Data: ${data.keys.take(5).toList()}...');
           experts.add(Expert.fromJson({...data, 'id': doc.id}));
         } catch (e) {
           debugPrint('❌ [FIREBASE] Failed to parse expert ${doc.id}: $e');
         }
       }
-      debugPrint('✅ [FIREBASE] Total experts successfully parsed: ${experts.length}');
+      debugPrint(
+          '✅ [FIREBASE] Total experts successfully parsed: ${experts.length}');
       return experts;
     } catch (e) {
       debugPrint('❌ [FIREBASE] Critical error in getExperts: $e');
@@ -134,8 +149,8 @@ class FirebaseService {
     required String expertId,
     required String expertName,
     required String expertEmail,
-    required String sessionDate,   // e.g. "Sunday, Apr 6, 2026"
-    required String sessionTime,   // e.g. "09:00"
+    required String sessionDate, // e.g. "Sunday, Apr 6, 2026"
+    required String sessionTime, // e.g. "09:00"
     required String duration,
     String? notes,
   }) async {
@@ -145,31 +160,33 @@ class FirebaseService {
     // Build an ISO string for reminder comparison
     String? isoDate;
     try {
-
-      final parts  = sessionTime.split(':');
+      final parts = sessionTime.split(':');
       final parsed = DateTime(
-        DateTime.now().year, 1, 1,
-        int.parse(parts[0]), int.parse(parts[1]),
+        DateTime.now().year,
+        1,
+        1,
+        int.parse(parts[0]),
+        int.parse(parts[1]),
       );
       // Approximate: store date string + time offset (full parse done at reminder check)
       isoDate = '${sessionDate}_${parsed.hour}:${parsed.minute}';
     } catch (_) {}
 
     final doc = await _firestore.collection('bookings').add({
-      'user_id':            await getEffectiveUid(),
-      'user_name':          user.displayName ?? '',
-      'user_email':         user.email ?? '',
-      'expert_id':          expertId,
-      'expert_name':        expertName,
-      'expert_email':       expertEmail,
-      'session_date':       sessionDate,
-      'session_time':       sessionTime,
-      'session_date_raw':   isoDate ?? sessionDate,
-      'duration':           duration,
-      'notes':              notes ?? '',
-      'status':             'pending',       // pending | confirmed | completed | cancelled
-      'reminder_sent':      false,
-      'created_at':         FieldValue.serverTimestamp(),
+      'user_id': await getEffectiveUid(),
+      'user_name': user.displayName ?? '',
+      'user_email': user.email ?? '',
+      'expert_id': expertId,
+      'expert_name': expertName,
+      'expert_email': expertEmail,
+      'session_date': sessionDate,
+      'session_time': sessionTime,
+      'session_date_raw': isoDate ?? sessionDate,
+      'duration': duration,
+      'notes': notes ?? '',
+      'status': 'pending', // pending | confirmed | completed | cancelled
+      'reminder_sent': false,
+      'created_at': FieldValue.serverTimestamp(),
     });
     return doc.id;
   }
@@ -178,39 +195,75 @@ class FirebaseService {
   Future<List<Map<String, dynamic>>> getMyBookings() async {
     final user = _auth.currentUser;
     if (user == null) return [];
+    
+    // Sort locally to avoid Firestore composite index requirement on (user_id, created_at)
     final snap = await _firestore
         .collection('bookings')
         .where('user_id', isEqualTo: await getEffectiveUid())
-        .orderBy('created_at', descending: true)
         .get();
-    return snap.docs.map((d) => {...d.data(), 'id': d.id}).toList();
+        
+    final docs = snap.docs.map((d) => {...d.data(), 'id': d.id}).toList();
+    docs.sort((a, b) {
+      final aTime = (a['created_at'] as Timestamp?)?.toDate() ?? DateTime(2000);
+      final bTime = (b['created_at'] as Timestamp?)?.toDate() ?? DateTime(2000);
+      return bTime.compareTo(aTime);
+    });
+    return docs;
   }
 
   /// Marks booking as confirmed and returns the generated 5-digit session code.
   Future<String> confirmBooking(String bookingId) async {
     final code = (10000 + Random().nextInt(90000)).toString();
     await _firestore.collection('bookings').doc(bookingId).update({
-      'status':       'confirmed',
+      'status': 'confirmed',
       'session_code': code,
       'confirmed_at': FieldValue.serverTimestamp(),
     });
     return code;
   }
 
-  /// Marks booking as cancelled and triggers email #5 to both parties.
-  Future<void> cancelBooking(String bookingId, {String cancelledBy = 'user', String? reason}) async {
+  /// Marks booking as rejected by the expert.
+  Future<void> rejectBooking(String bookingId, {String? reason}) async {
     await _firestore.collection('bookings').doc(bookingId).update({
-      'status':         'cancelled',
-      'cancelled_by':   cancelledBy,
-      'cancel_reason':  reason ?? '',
-      'cancelled_at':   FieldValue.serverTimestamp(),
+      'status': 'rejected',
+      'reject_reason': reason ?? '',
+      'rejected_at': FieldValue.serverTimestamp(),
     });
   }
+
+  /// Marks booking as cancelled and triggers email #5 to both parties.
+  Future<void> cancelBooking(String bookingId,
+      {String cancelledBy = 'user', String? reason}) async {
+    await _firestore.collection('bookings').doc(bookingId).update({
+      'status': 'cancelled',
+      'cancelled_by': cancelledBy,
+      'cancel_reason': reason ?? '',
+      'cancelled_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ── Video Call Signaling ────────────────────────────────────────────────────────
+
+  /// Updates the booking to alert the expert that the user is waiting/ringing.
+  Future<void> initiateCall(String bookingId) async {
+    await _firestore.collection('bookings').doc(bookingId).update({
+      'call_status': 'ringing',
+    });
+  }
+
+  /// Updates the booking to show the call is active.
+  Future<void> answerCall(String bookingId) async {
+    await _firestore.collection('bookings').doc(bookingId).update({
+      'call_status': 'in_progress',
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────────
 
   /// Marks booking as completed and triggers email #4 to the user.
   Future<void> completeBooking(String bookingId) async {
     await _firestore.collection('bookings').doc(bookingId).update({
-      'status':       'completed',
+      'status': 'completed',
       'completed_at': FieldValue.serverTimestamp(),
     });
   }
@@ -218,17 +271,27 @@ class FirebaseService {
   // --- Expert Portal Mode Methods ---
 
   /// Returns all bookings for a specific expert in real-time.
-  Stream<List<Map<String, dynamic>>> getExpertBookingsStream(String expertId) {
+  Stream<List<Map<String, dynamic>>> getExpertBookingsStream(String expertEmail) {
     return _firestore
         .collection('bookings')
-        .where('expert_id', isEqualTo: expertId)
-        .orderBy('created_at', descending: true)
+        .where('expert_email', isEqualTo: expertEmail)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => {...d.data(), 'id': d.id}).toList());
+        .map((snap) {
+          final docs = snap.docs.map((d) => {...d.data(), 'id': d.id}).toList();
+          // Sort client-side (newest first) to avoid requiring a composite Firestore index
+          docs.sort((a, b) {
+            final aTs = a['created_at'];
+            final bTs = b['created_at'];
+            if (aTs == null || bTs == null) return 0;
+            return bTs.compareTo(aTs);
+          });
+          return docs;
+        });
   }
 
   /// Updates an expert's profile data (e.g. schedule, bio)
-  Future<void> updateExpertProfileData(String expertId, Map<String, dynamic> data) async {
+  Future<void> updateExpertProfileData(
+      String expertId, Map<String, dynamic> data) async {
     final doc = await _firestore.collection('experts').doc(expertId).get();
     if (!doc.exists) {
       await _firestore.collection('experts').doc(expertId).set(data);
@@ -236,8 +299,6 @@ class FirebaseService {
       await _firestore.collection('experts').doc(expertId).update(data);
     }
   }
-
-
 
   // --- Notifications ---
   Stream<List<NotificationModel>> getNotificationsStream() async* {
@@ -251,12 +312,16 @@ class FirebaseService {
         .orderBy('created_at', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => NotificationModel.fromJson(doc.data()..['id'] = doc.id))
+            .map((doc) =>
+                NotificationModel.fromJson(doc.data()..['id'] = doc.id))
             .toList());
   }
 
   Future<void> markNotificationAsRead(String id) async {
-    await _firestore.collection('notifications').doc(id).update({'is_read': true});
+    await _firestore
+        .collection('notifications')
+        .doc(id)
+        .update({'is_read': true});
   }
 
   Future<void> markAllNotificationsRead() async {
@@ -302,32 +367,36 @@ class FirebaseService {
     final snapshot = await _firestore.collection('articles').get();
     final docs = snapshot.docs.map((doc) => doc.data()).toList();
     return {
-      'featured': docs.firstWhere((a) => a['is_featured'] == true, orElse: () => docs.first),
+      'featured': docs.firstWhere((a) => a['is_featured'] == true,
+          orElse: () => docs.first),
       'recent': docs.where((a) => a['is_featured'] != true).toList(),
     };
   }
 
   /// AI-Powered dynamic articles that update based on real-world trends
-  Future<Map<String, dynamic>> getDynamicArticles({bool forceRefresh = false}) async {
+  Future<Map<String, dynamic>> getDynamicArticles(
+      {bool forceRefresh = false}) async {
     try {
-      final docRef = _firestore.collection('default_data').doc('daily_insights');
+      final docRef =
+          _firestore.collection('default_data').doc('daily_insights');
       final doc = await docRef.get();
-      
+
       // Ultra-Fast Cache: Refresh every 2 mins to ensure high-frequency variety
       bool shouldRefresh = true;
       if (doc.exists && !forceRefresh) {
         final lastUpdate = (doc.data()?['last_update'] as Timestamp?)?.toDate();
         if (lastUpdate != null) {
           final difference = DateTime.now().difference(lastUpdate).inMinutes;
-          if (difference < 2) { 
+          if (difference < 2) {
             shouldRefresh = false;
-            debugPrint('Content is fresh ($difference mins old). Serving from cache.');
+            debugPrint(
+                'Content is fresh ($difference mins old). Serving from cache.');
           }
         }
       }
       if (shouldRefresh) {
         final now = DateTime.now();
-        
+
         // Randomized focus topics to ensure variety
         final focusTopics = [
           'Emerging Markets & VC trends',
@@ -353,23 +422,25 @@ class FirebaseService {
           
           Return ONLY the JSON array.
         ''';
-        
-        debugPrint('Asking Vertex AI for GROUNDED insights with focus: $randomFocus...');
+
+        debugPrint(
+            'Asking Vertex AI for GROUNDED insights with focus: $randomFocus...');
         final response = await VertexAiService.generateGroundedInsights(prompt);
         if (response != null) {
           // Robust JSON extraction from AI response
           String cleanJson = response.trim();
           final firstBracket = cleanJson.indexOf('[');
           final lastBracket = cleanJson.lastIndexOf(']');
-          
-          if (firstBracket != -1 && lastBracket != -1 && lastBracket > firstBracket) {
+
+          if (firstBracket != -1 &&
+              lastBracket != -1 &&
+              lastBracket > firstBracket) {
             cleanJson = cleanJson.substring(firstBracket, lastBracket + 1);
           }
 
           try {
-            final List<dynamic> parsed = List.from(
-              cleanJson.isEmpty ? [] : (jsonDecode(cleanJson))
-            );
+            final List<dynamic> parsed =
+                List.from(cleanJson.isEmpty ? [] : (jsonDecode(cleanJson)));
 
             if (parsed.isNotEmpty) {
               debugPrint('Parsed ${parsed.length} dynamic articles from AI.');
@@ -377,34 +448,44 @@ class FirebaseService {
               final curated = parsed.map((item) {
                 final category = item['category']?.toString() ?? 'Business';
                 String imgKeyword = 'office';
-                
+
                 // Broader keyword mapping
                 final catLower = category.toLowerCase();
-                if (catLower.contains('finance') || catLower.contains('money') || catLower.contains('market')) {
+                if (catLower.contains('finance') ||
+                    catLower.contains('money') ||
+                    catLower.contains('market')) {
                   imgKeyword = 'financial';
                 } else if (catLower.contains('tech')) {
                   imgKeyword = 'technology';
-                } else if (catLower.contains('ai') || catLower.contains('robot')) {
+                } else if (catLower.contains('ai') ||
+                    catLower.contains('robot')) {
                   imgKeyword = 'artificial-intelligence';
-                } else if (catLower.contains('strategy') || catLower.contains('plan')) {
+                } else if (catLower.contains('strategy') ||
+                    catLower.contains('plan')) {
                   imgKeyword = 'strategy-planning';
                 } else if (catLower.contains('marketing')) {
                   imgKeyword = 'marketing-branding';
                 }
-                
+
                 return {
                   ...item,
-                  'image_url': 'https://images.unsplash.com/photo-${_getUnsplashId(imgKeyword)}?auto=format&fit=crop&q=80&w=800',
+                  'image_url':
+                      'https://images.unsplash.com/photo-${_getUnsplashId(imgKeyword)}?auto=format&fit=crop&q=80&w=800',
                   'is_featured': parsed.indexOf(item) == 0,
                   'id': item['id'] ?? 'insight-${parsed.indexOf(item)}',
                 };
               }).toList();
 
-              await docRef.set({
-                'articles': curated,
-                'last_update': FieldValue.serverTimestamp(),
-              });
-              
+              try {
+                await docRef.set({
+                  'articles': curated,
+                  'last_update': FieldValue.serverTimestamp(),
+                });
+              } catch (cacheError) {
+                debugPrint(
+                    'Could not update global cache (likely permissions), continuing with local data: $cacheError');
+              }
+
               return {
                 'featured': curated.first,
                 'recent': curated.skip(1).toList(),
@@ -423,14 +504,15 @@ class FirebaseService {
             .map((item) => Map<String, dynamic>.from(item as Map))
             .toList();
         if (curated.isNotEmpty) {
-          debugPrint('Serving ${curated.length} articles from Firestore cache.');
+          debugPrint(
+              'Serving ${curated.length} articles from Firestore cache.');
           return {
             'featured': curated.first,
             'recent': curated.skip(1).toList(),
           };
         }
       }
-      
+
       // Fallback 2: Static database articles
       final staticArticles = await getArticles();
       if ((staticArticles['recent'] as List).isNotEmpty) {
@@ -447,7 +529,8 @@ class FirebaseService {
       {
         'title': 'AI Transformation: The Next Decade of Enterprise Strategy',
         'category': 'Strategy',
-        'summary': 'As AI matures from experimental to essential, businesses must pivot their long-term strategies to leverage generative models for actual operational efficiency.',
+        'summary':
+            'As AI matures from experimental to essential, businesses must pivot their long-term strategies to leverage generative models for actual operational efficiency.',
         'read_time': '5 min read',
         'views': '1.8k views',
         'id': 'safety-01'
@@ -455,7 +538,8 @@ class FirebaseService {
       {
         'title': 'Global Market Resilience Amidst Interest Rate Volatility',
         'category': 'Market',
-        'summary': 'Despite the unpredictable shifts in US Treasury yields, emerging markets are showing surprising resilience as diversification reaches new heights in Q2 2026.',
+        'summary':
+            'Despite the unpredictable shifts in US Treasury yields, emerging markets are showing surprising resilience as diversification reaches new heights in Q2 2026.',
         'read_time': '4 min read',
         'views': '2.1k views',
         'id': 'safety-02'
@@ -463,7 +547,8 @@ class FirebaseService {
       {
         'title': 'The Rise of Hyper-Personalised Marketing Engines',
         'category': 'Marketing',
-        'summary': 'Modern brands are no longer using segments—they are using individuals. AI is enabling a 1-to-1 relationship at scale that was previously impossible.',
+        'summary':
+            'Modern brands are no longer using segments—they are using individuals. AI is enabling a 1-to-1 relationship at scale that was previously impossible.',
         'read_time': '3 min read',
         'views': '1.5k views',
         'id': 'safety-03'
@@ -471,7 +556,8 @@ class FirebaseService {
       {
         'title': 'FinTech 2.0: Beyond Digital Banking to Smart Equity',
         'category': 'Finance',
-        'summary': 'The next wave of finance isn\'t just about digital access; it is about algorithmically-driven wealth management that levels the playing field for all investors.',
+        'summary':
+            'The next wave of finance isn\'t just about digital access; it is about algorithmically-driven wealth management that levels the playing field for all investors.',
         'read_time': '6 min read',
         'views': '2.4k views',
         'id': 'safety-04'
@@ -502,12 +588,15 @@ class FirebaseService {
   // Helper to get consistent High-Stability Unsplash IDs for categories
   String _getUnsplashId(String keyword) {
     final Map<String, String> ids = {
-      'financial': '1551288049-bebda4e38f71',       // High-tech Data/Network
-      'technology': '1573164713988-8665fc963095',      // Elite Tech Professional
-      'artificial-intelligence': '1516321318423-f06f85e504b3', // Deep AI Network
-      'strategy-planning': '1531482615713-2afd69097998',   // Strategic Business Leaders
-      'marketing-branding': '1504384545340-562a0ea2af6b', // Modern Work & Growth
-      'office': '1522071820081-009f0129c71c',         // Premium Team Collaboration
+      'financial': '1551288049-bebda4e38f71', // High-tech Data/Network
+      'technology': '1573164713988-8665fc963095', // Elite Tech Professional
+      'artificial-intelligence':
+          '1516321318423-f06f85e504b3', // Deep AI Network
+      'strategy-planning':
+          '1531482615713-2afd69097998', // Strategic Business Leaders
+      'marketing-branding':
+          '1504384545340-562a0ea2af6b', // Modern Work & Growth
+      'office': '1522071820081-009f0129c71c', // Premium Team Collaboration
     };
     return ids[keyword] ?? ids['office']!;
   }
@@ -526,11 +615,14 @@ class FirebaseService {
         .collection('ai_sessions')
         .where('user_id', isEqualTo: await getEffectiveUid())
         .get();
-    
-    final docs = snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
+
+    final docs =
+        snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
     docs.sort((a, b) {
-      final aTime = (a['updated_at'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
-      final bTime = (b['updated_at'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+      final aTime =
+          (a['updated_at'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+      final bTime =
+          (b['updated_at'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
       return bTime.compareTo(aTime);
     });
     return docs;
@@ -539,21 +631,24 @@ class FirebaseService {
   Stream<List<Map<String, dynamic>>> getAiSessionsStream() async* {
     final user = _auth.currentUser;
     if (user == null) yield* Stream.value([]);
-    
+
     final effectiveUid = await getEffectiveUid();
     yield* _firestore
         .collection('ai_sessions')
         .where('user_id', isEqualTo: effectiveUid)
         .snapshots()
         .map((snap) {
-          final docs = snap.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
-          docs.sort((a, b) {
-            final aTime = (a['updated_at'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
-            final bTime = (b['updated_at'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
-            return bTime.compareTo(aTime);
-          });
-          return docs;
-        });
+      final docs =
+          snap.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
+      docs.sort((a, b) {
+        final aTime =
+            (a['updated_at'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+        final bTime =
+            (b['updated_at'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+        return bTime.compareTo(aTime);
+      });
+      return docs;
+    });
   }
 
   Future<void> deleteAiSession(String sessionId) async {
@@ -578,13 +673,19 @@ class FirebaseService {
         .collection('messages')
         .orderBy('timestamp', descending: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Message.fromJson(doc.data()..['id'] = doc.id)).toList());
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Message.fromJson(doc.data()..['id'] = doc.id))
+            .toList());
   }
 
-  Future<void> sendChatMessage(String text, {required String sessionId, List<Map<String, dynamic>>? attachments}) async {
+  Future<void> sendChatMessage(String text,
+      {required String sessionId,
+      List<Map<String, dynamic>>? attachments}) async {
     final user = _auth.currentUser;
     if (user == null) return;
-    if (text.trim().isEmpty && (attachments == null || attachments.isEmpty)) return;
+    if (text.trim().isEmpty && (attachments == null || attachments.isEmpty)) {
+      return;
+    }
 
     final sessionRef = _firestore.collection('ai_sessions').doc(sessionId);
     final messagesRef = sessionRef.collection('messages');
@@ -592,7 +693,7 @@ class FirebaseService {
     // 1. Upsert session metadata
     final sessionDoc = await sessionRef.get();
     bool isNew = !sessionDoc.exists;
-    
+
     await sessionRef.set({
       'user_id': user.uid,
       'updated_at': FieldValue.serverTimestamp(),
@@ -603,7 +704,8 @@ class FirebaseService {
 
     // 2. Clear empty text if attachments exist, use a placeholder to avoid empty prompt errors
     String promptText = text;
-    if (promptText.trim().isEmpty && (attachments != null && attachments.isNotEmpty)) {
+    if (promptText.trim().isEmpty &&
+        (attachments != null && attachments.isNotEmpty)) {
       promptText = "(Analyzing attached document(s)...)";
     }
 
@@ -627,9 +729,9 @@ class FirebaseService {
           .orderBy('timestamp', descending: true)
           .limit(12) // Get enough context
           .get();
-      
+
       final history = <Map<String, String>>[];
-      
+
       // A. Add user's bio/booking info as system context first
       final userContext = await _buildUserContext(user.uid);
       if (userContext.isNotEmpty) {
@@ -643,10 +745,10 @@ class FirebaseService {
         final data = doc.data();
         final content = data['text'] as String? ?? '';
         final type = data['type'] as String? ?? '';
-        
+
         // Skip placeholders
         if (content == '...' || doc.id == botMsgRef.id) continue;
-        
+
         // If it's the message we just sent, skip it here so we can add the "unsynced" local one at the end
         // This avoids double-adding if Firestore is very fast, or missing if Firestore is slow.
         if (content == promptText && type == 'user') continue;
@@ -656,10 +758,10 @@ class FirebaseService {
           'content': content,
         });
       }
-      
+
       // C. Add the current conversation pieces to the final request
       history.addAll(conversationHistory);
-      
+
       // D. Finally add the message we JUST SENT as the very last user turn
       history.add({
         'role': 'user',
@@ -679,7 +781,8 @@ class FirebaseService {
         });
       } else {
         await botMsgRef.update({
-          'text': 'I encountered a silent failure processing this request. This usually happens if the PDF is password-protected or exceeds the memory limit.',
+          'text':
+              'I encountered a silent failure processing this request. This usually happens if the PDF is password-protected or exceeds the memory limit.',
         });
       }
 
@@ -689,7 +792,10 @@ class FirebaseService {
       }
     } catch (e) {
       debugPrint('Chat error: $e');
-      await botMsgRef.update({'text': 'Multimodal Error: $e. Please verify that Vertex AI for Firebase is configured correctly in your console.'});
+      await botMsgRef.update({
+        'text':
+            'Multimodal Error: $e. Please verify that Vertex AI for Firebase is configured correctly in your console.'
+      });
     }
   }
 
@@ -708,9 +814,11 @@ class FirebaseService {
       final lang = prefs.getString('appLanguage') ?? 'en';
       String languageInstruction = 'You must respond in English.';
       if (lang == 'ar') {
-        languageInstruction = 'You MUST reply exclusively in Arabic (العربية) while maintaining the professional business advisor persona.';
+        languageInstruction =
+            'You MUST reply exclusively in Arabic (العربية) while maintaining the professional business advisor persona.';
       } else if (lang == 'ckb') {
-        languageInstruction = 'You MUST reply exclusively in Kurdish Sorani (کوردی) while maintaining the professional business advisor persona.';
+        languageInstruction =
+            'You MUST reply exclusively in Kurdish Sorani (کوردی) while maintaining the professional business advisor persona.';
       }
 
       return '''
@@ -751,13 +859,18 @@ LANGUAGE INSTRUCTION — CRITICAL
 $languageInstruction
 
 (Use this context silently to personalize your advice when relevant.)
-'''.trim();
-    } catch (_) { return ''; }
+'''
+          .trim();
+    } catch (_) {
+      return '';
+    }
   }
 
-  Future<void> _generateSessionTitle(String firstMsg, DocumentReference sessionRef) async {
+  Future<void> _generateSessionTitle(
+      String firstMsg, DocumentReference sessionRef) async {
     try {
-      final prompt = 'Generate a 4-word title for this business conversation: "$firstMsg"';
+      final prompt =
+          'Generate a 4-word title for this business conversation: "$firstMsg"';
       final title = await VertexAiService.generateGroundedInsights(prompt);
       if (title != null) {
         await sessionRef.update({'title': title.replaceAll('"', '').trim()});
@@ -786,15 +899,21 @@ $languageInstruction
     });
 
     try {
-      final productsSnapshot = await _firestore.collection('products').where('active', isEqualTo: true).get();
-      
+      final productsSnapshot = await _firestore
+          .collection('products')
+          .where('active', isEqualTo: true)
+          .get();
+
       for (var productDoc in productsSnapshot.docs) {
         final productData = productDoc.data();
-        final pricesSnapshot = await productDoc.reference.collection('prices').where('active', isEqualTo: true).get();
+        final pricesSnapshot = await productDoc.reference
+            .collection('prices')
+            .where('active', isEqualTo: true)
+            .get();
 
         for (var priceDoc in pricesSnapshot.docs) {
           final priceData = priceDoc.data();
-          
+
           final metadata = productData['metadata'] ?? {};
           final name = productData['name'] ?? '';
           final isPro = name.toLowerCase().contains('pro');
@@ -802,16 +921,22 @@ $languageInstruction
 
           combinedPlans.add({
             'productId': productDoc.id,
-            'id': priceDoc.id, 
+            'id': priceDoc.id,
             'name': name,
-            'description': productData['description'] ?? 'Unlock advanced features.',
+            'description':
+                productData['description'] ?? 'Unlock advanced features.',
             'price': ((priceData['unit_amount'] ?? 0) / 100).round(),
-            'period': priceData['interval'] == 'year' ? 'per year' : 'per month',
+            'period':
+                priceData['interval'] == 'year' ? 'per year' : 'per month',
             'isYearly': priceData['interval'] == 'year',
-            'icon_name': isPremium ? 'workspace_premium' : (isPro ? 'flash_on' : 'auto_awesome'),
+            'icon_name': isPremium
+                ? 'workspace_premium'
+                : (isPro ? 'flash_on' : 'auto_awesome'),
             'popular': isPro,
-            'gradientFrom': metadata['gradientFrom'] ?? (isPremium ? '#8B5CF6' : '#2563EB'),
-            'gradientTo': metadata['gradientTo'] ?? (isPremium ? '#D946EF' : '#0EA5E9'),
+            'gradientFrom':
+                metadata['gradientFrom'] ?? (isPremium ? '#8B5CF6' : '#2563EB'),
+            'gradientTo':
+                metadata['gradientTo'] ?? (isPremium ? '#D946EF' : '#0EA5E9'),
             'features': ['Full AI access', 'Business analytics', 'Support'],
           });
         }
@@ -836,16 +961,20 @@ $languageInstruction
           'popular': data['is_popular'] ?? false,
           'gradientFrom': data['gradient_from'] ?? '#0284C7',
           'gradientTo': data['gradient_to'] ?? '#0EA5E9',
-          'features': (data['features'] is List) ? List<String>.from(data['features']) : [],
+          'features': (data['features'] is List)
+              ? List<String>.from(data['features'])
+              : [],
         });
       }
     }
-    
-    combinedPlans.sort((a, b) => (a['price'] as int).compareTo(b['price'] as int));
+
+    combinedPlans
+        .sort((a, b) => (a['price'] as int).compareTo(b['price'] as int));
     return combinedPlans;
   }
 
-  Future<Map<String, dynamic>> purchaseSubscription(String priceId, String planName, bool isYearly) async {
+  Future<Map<String, dynamic>> purchaseSubscription(
+      String priceId, String planName, bool isYearly) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not logged in');
 
@@ -857,19 +986,21 @@ $languageInstruction
           .collection('checkout_sessions')
           .add({
         'price': priceId,
-        'success_url': 'https://intellix-b03b0.web.app/notifications', // Generic fallback
+        'success_url':
+            'https://intellix-b03b0.web.app/notifications', // Generic fallback
         'cancel_url': 'https://intellix-b03b0.web.app/',
       });
 
       // 2. Wait for the Stripe Extension to write the `url` to the document
       String? checkoutUrl;
       int attempts = 0;
-      
-      while (checkoutUrl == null && attempts < 20) { // wait up to ~10 seconds
+
+      while (checkoutUrl == null && attempts < 20) {
+        // wait up to ~10 seconds
         await Future.delayed(const Duration(milliseconds: 500));
         final docSnap = await docRef.get();
         final data = docSnap.data();
-        
+
         if (data != null) {
           if (data.containsKey('url')) {
             checkoutUrl = data['url'];
@@ -881,7 +1012,8 @@ $languageInstruction
       }
 
       if (checkoutUrl == null) {
-        throw Exception('Timeout waiting for checkout URL. Ensure Firebase Stripe Extension is configured.');
+        throw Exception(
+            'Timeout waiting for checkout URL. Ensure Firebase Stripe Extension is configured.');
       }
 
       return {
