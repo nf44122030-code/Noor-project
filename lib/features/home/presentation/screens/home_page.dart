@@ -8,6 +8,7 @@ import '../../../../features/auth/presentation/providers/auth_controller.dart';
 import '../../../../features/ai/presentation/screens/ai_assistant_page.dart';
 import '../../../../features/notification/presentation/screens/notification_page.dart';
 import '../../../../features/explore/presentation/screens/explore_page.dart';
+import '../../../../features/analytics/presentation/screens/data_analytics_page.dart';
 import '../widgets/market_analysis_dashboard.dart';
 
 class HomePage extends StatefulWidget {
@@ -67,7 +68,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _currentPage = 'ai';
           break;
         case 4:
-          context.push('/pricing');
+          _currentPage = 'analytics';
           break;
       }
     });
@@ -199,6 +200,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         case 'explore':
           currentWidget = const ExplorePage();
           break;
+        case 'analytics':
+          currentWidget = const DataAnalyticsPage();
+          break;
         case 'notifications':
           currentWidget = NotificationPage(
             onBack: () => setState(() => _currentPage = 'home'),
@@ -216,7 +220,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           children: [
             Column(
               children: [
-                if (_currentPage != 'notifications' && _currentPage != 'ai')
+                if (_currentPage != 'notifications' && _currentPage != 'ai' && _currentPage != 'analytics')
                   _buildAppBar(isDark),
                 Expanded(child: currentWidget),
               ],
@@ -457,7 +461,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   ),
                 ),
                 _buildNavItem(icon: Icons.smart_toy_rounded, label: 'ai_chat'.tr, index: 3, isDark: isDark),
-                _buildNavItem(icon: Icons.workspace_premium_rounded, label: 'pricing'.tr, index: 4, isDark: isDark),
+                _buildNavItem(icon: Icons.analytics_rounded, label: 'Analytics', index: 4, isDark: isDark),
               ],
             ),
           ),
@@ -595,6 +599,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ),
                 const SizedBox(height: 8),
                 _buildDrawerItem(icon: Icons.person_rounded, title: 'profile'.tr, isDark: isDark, onTap: () => context.push('/profile')),
+                _buildDrawerItem(icon: Icons.workspace_premium_rounded, title: 'pricing'.tr, isDark: isDark, onTap: () => context.push('/pricing')),
                 _buildDrawerItem(icon: Icons.settings_rounded, title: 'settings'.tr, isDark: isDark, onTap: () => context.push('/settings')),
                 _buildDrawerItem(icon: Icons.help_outline_rounded, title: 'help_support'.tr, isDark: isDark, onTap: () => context.push('/help')),
                 Padding(
