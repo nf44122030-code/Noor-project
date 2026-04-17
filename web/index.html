@@ -37,5 +37,69 @@
   <script src="flutter_bootstrap.js" async></script>
   <!-- Iris Web RTC — the ONLY script needed for agora_rtc_engine 6.5.3 on Flutter Web (bundles AgoraRTC internally) -->
   <script src="https://download.agora.io/sdk/release/iris-web-rtc_n450_w4220_0.8.6.js"></script>
+
+  <!-- Speech Recognition helpers for live transcription -->
+  <script>
+    var _intellixSpeechRecog = null;
+
+    function intellixStartSpeech(lang, callback) {
+      try {
+        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) { callback('ERROR:Speech recognition not supported in this browser'); return false; }
+
+        intellixStopSpeech(); // stop any existing instance
+
+        _intellixSpeechRecog = new SR();
+        _intellixSpeechRecog.continuous = true;
+        _intellixSpeechRecog.interimResults = false;
+        _intellixSpeechRecog.lang = lang;
+        _intellixSpeechRecog.maxAlternatives = 1;
+
+        _intellixSpeechRecog.onresult = function(event) {
+          for (var i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              var text = event.results[i][0].transcript.trim();
+              if (text.length > 0) { callback(text); }
+            }
+          }
+        };
+
+        _intellixSpeechRecog.onend = function() {
+          // Auto-restart for continuous listening
+          if (_intellixSpeechRecog) {
+            try { _intellixSpeechRecog.start(); } catch(e) { console.log('Speech restart error:', e); }
+          }
+        };
+
+        _intellixSpeechRecog.onerror = function(event) {
+          console.log('Speech error:', event.error);
+          if (event.error === 'not-allowed') {
+            callback('ERROR:Microphone permission denied for speech recognition');
+          }
+          // For other errors (no-speech, network), let onend auto-restart
+        };
+
+        _intellixSpeechRecog.start();
+        console.log('Speech recognition started with lang:', lang);
+        return true;
+      } catch(e) {
+        console.error('Speech recognition start failed:', e);
+        callback('ERROR:' + e.message);
+        return false;
+      }
+    }
+
+    function intellixStopSpeech() {
+      if (_intellixSpeechRecog) {
+        var temp = _intellixSpeechRecog;
+        _intellixSpeechRecog = null;
+        try { temp.stop(); } catch(e) {}
+      }
+    }
+
+    function intellixIsSpeechSupported() {
+      return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    }
+  </script>
 </body>
 </html>

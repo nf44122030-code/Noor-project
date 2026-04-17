@@ -42,6 +42,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   bool _isTranscribing = false;
   String? _agoraError;
   String _lastTranscript = '';
+  final List<String> _transcriptLines = [];
   int? _remoteUid;
   String _channelId = '';
 
@@ -87,8 +88,13 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     };
     AgoraService.onTranscriptUpdate = (text) {
       if (mounted) {
-        setState(() => _lastTranscript = text);
-        // Also feed it to the notes controller
+        setState(() {
+          _lastTranscript = text;
+          _transcriptLines.add('[${_formatTime(_sessionTime)}] You: $text');
+          // Keep max 50 lines
+          if (_transcriptLines.length > 50) _transcriptLines.removeAt(0);
+        });
+        // Feed to notes controller
         notesController.simulateAINoteGeneration('You', text);
       }
     };
@@ -624,52 +630,63 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                         ),
                       ),
 
-                      // ── Live transcription indicator (below timer) ──
+                      // ── Transcript overlay (bottom of video) ──
                       if (_isTranscribing)
                         Positioned(
-                          top: 72, left: 16,
+                          bottom: 8, left: 8, right: 8,
                           child: Container(
-                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.6),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            constraints: const BoxConstraints(maxHeight: 120),
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(16),
+                              color: Colors.black.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Row(
+                            child: Column(
                               mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.hearing, color: Colors.cyanAccent, size: 14),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    _lastTranscript.isNotEmpty ? _lastTranscript : 'Listening...',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.9),
-                                      fontSize: 11,
-                                      fontStyle: _lastTranscript.isEmpty ? FontStyle.italic : FontStyle.normal,
+                                Row(
+                                  children: [
+                                    const Icon(Icons.hearing, color: Colors.cyanAccent, size: 14),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Live Transcript',
+                                      style: TextStyle(color: Colors.cyanAccent.withValues(alpha: 0.9), fontSize: 11, fontWeight: FontWeight.bold),
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                    const Spacer(),
+                                    Container(
+                                      width: 6, height: 6,
+                                      decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                      // ── Speaking indicator (only when remote user is connected) ──
-                      if (_remoteUid != null)
-                        Positioned(
-                          bottom: 16, left: 16, right: 16,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(24)),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.mic, color: Colors.white, size: 16),
-                                const SizedBox(width: 8),
-                                Text('$_expertName is speaking...', style: const TextStyle(color: Colors.white, fontSize: 14)),
+                                const SizedBox(height: 6),
+                                Flexible(
+                                  child: _transcriptLines.isEmpty
+                                    ? Text(
+                                        'Listening... speak to start transcribing',
+                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12, fontStyle: FontStyle.italic),
+                                      )
+                                    : ListView.builder(
+                                        shrinkWrap: true,
+                                        reverse: true,
+                                        itemCount: _transcriptLines.length,
+                                        itemBuilder: (_, i) {
+                                          final idx = _transcriptLines.length - 1 - i;
+                                          return Padding(
+                                            padding: const EdgeInsets.only(bottom: 3),
+                                            child: Text(
+                                              _transcriptLines[idx],
+                                              style: TextStyle(
+                                                color: Colors.white.withValues(alpha: i == 0 ? 1.0 : 0.6),
+                                                fontSize: 12,
+                                                fontWeight: i == 0 ? FontWeight.w500 : FontWeight.normal,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                ),
                               ],
                             ),
                           ),
