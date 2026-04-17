@@ -557,20 +557,16 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                           width: 100, height: 140,
                           decoration: BoxDecoration(
                             color: Colors.black,
-                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: _isVideoOn && _isAgoraInitialized
-                                ? AgoraVideoView(
-                                    controller: VideoViewController(
-                                      rtcEngine: AgoraService.engine,
-                                      canvas: const VideoCanvas(uid: 0),
-                                    ),
-                                  )
-                                : Container(color: Colors.grey[900], child: const Icon(Icons.videocam_off, color: Colors.white54)),
-                          ),
+                          child: _isVideoOn && _isAgoraInitialized
+                              ? AgoraVideoView(
+                                  controller: VideoViewController(
+                                    rtcEngine: AgoraService.engine,
+                                    canvas: const VideoCanvas(uid: 0),
+                                  ),
+                                )
+                              : Container(color: Colors.grey[900], child: const Icon(Icons.videocam_off, color: Colors.white54)),
                         ),
                       ),
 
