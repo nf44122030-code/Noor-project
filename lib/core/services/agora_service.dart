@@ -50,6 +50,16 @@ class AgoraService {
             if (onRemoteUserOffline != null) onRemoteUserOffline!(remoteUid);
           }
         },
+        // Fires when a user's video becomes available - catches users ALREADY in the channel
+        onRemoteVideoStateChanged: (RtcConnection connection, int remoteUid, RemoteVideoState state, RemoteVideoStateReason reason, int elapsed) {
+          debugPrint("📹 Agora onRemoteVideoStateChanged: uid=$remoteUid state=$state");
+          if (remoteUid == _pubBotUid || remoteUid == 47091) return;
+          if (state == RemoteVideoState.remoteVideoStateDecoding || state == RemoteVideoState.remoteVideoStateStarting) {
+            if (onRemoteUserJoined != null) onRemoteUserJoined!(remoteUid);
+          } else if (state == RemoteVideoState.remoteVideoStateStopped || state == RemoteVideoState.remoteVideoStateFailed) {
+            if (onRemoteUserOffline != null) onRemoteUserOffline!(remoteUid);
+          }
+        },
         onError: (ErrorCodeType err, String msg) {
           debugPrint("Agora Error $err: $msg");
           if (onAgoraError != null) onAgoraError!('Agora System Error: $err - $msg');
@@ -68,6 +78,7 @@ class AgoraService {
   }
 
   static Future<void> joinChannel(String channelId, int uid) async {
+    debugPrint('🔑 AgoraService.joinChannel — channelId="$channelId" uid=$uid');
     const options = ChannelMediaOptions(
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
       channelProfile: ChannelProfileType.channelProfileCommunication,

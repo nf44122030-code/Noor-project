@@ -18,12 +18,14 @@ class VideoSessionPage extends StatefulWidget {
   final String? expertName;
   final String? expertTitle;
   final String? initialCode;
+  final bool isExpert;
 
   const VideoSessionPage({
     super.key,
     this.expertName,
     this.expertTitle,
     this.initialCode,
+    this.isExpert = false,
   });
 
   @override
@@ -66,23 +68,22 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     _expertName = widget.expertName ?? 'Expert Session';
     _expertTitle = widget.expertTitle ?? 'Consultation';
 
-    // Temporarily bypass session code logic for testing
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _connectToSession(channelId: 'demo_channel', isClient: false);
-    });
-
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat();
     
+    // Register callbacks BEFORE joining channel so they're ready to fire
     AgoraService.onRemoteUserJoined = (uid) {
+      debugPrint('🟢 Remote user joined: $uid');
       if (mounted) setState(() => _remoteUid = uid);
     };
     AgoraService.onRemoteUserOffline = (uid) {
+      debugPrint('🔴 Remote user offline: $uid');
       if (mounted && _remoteUid == uid) setState(() => _remoteUid = null);
     };
     AgoraService.onAgoraError = (msg) {
+      debugPrint('❌ Agora error: $msg');
       if (mounted) setState(() => _agoraError = msg);
     };
     AgoraService.onTranscriptUpdate = (text) {
@@ -92,11 +93,21 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
           // Keep max 50 lines
           if (_transcriptLines.length > 50) _transcriptLines.removeAt(0);
         });
-        // Feed to notes controller
-        notesController.simulateAINoteGeneration('You', text);
       }
     };
     
+    // If an initialCode is provided (e.g. expert answered a call from dashboard),
+    // auto-fill the code boxes and trigger the join flow
+    if (widget.initialCode != null && widget.initialCode!.length == 5) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final chars = widget.initialCode!.split('');
+        for (int i = 0; i < 5; i++) {
+          _codeControllers[i].text = chars[i];
+        }
+        _verifyCode();
+      });
+    }
+
     _checkPermissionsOnLoad();
   }
 
@@ -166,7 +177,12 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
 
       final doc = query.docs.first;
       final bookingId = doc.id;
-      final isClient = doc.data()['user_id'] == await FirebaseService().getEffectiveUid();
+      // If expert answered from dashboard, they are NOT the client (isClient = false)
+      // Otherwise, check the user_id against the current user's UID
+      final bool isClient = widget.isExpert
+          ? false
+          : (doc.data()['user_id'] == await FirebaseService().getEffectiveUid());
+      debugPrint('📋 Booking found: $bookingId | isClient: $isClient | isExpert: ${widget.isExpert}');
       final hasPermissions = kIsWeb || await PermissionsHelper.hasVideoCallPermissions();
       
       if (!hasPermissions && mounted) {
@@ -190,6 +206,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   }
 
   void _connectToSession({required String channelId, bool isDemo = false, bool isClient = false}) async {
+    debugPrint('🔵 Connecting to Agora channel: "$channelId" (isClient: $isClient)');
     if (isClient) {
       FirebaseService().initiateCall(channelId).catchError((e) => debugPrint('Error ringing expert: $e'));
     }
@@ -312,15 +329,25 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   }
 
   Future<void> _endSession() async {
-    setState(() => _sessionState = 'connecting'); 
+    setState(() => _sessionState = 'connecting'); // Show loading screen 
     try {
+      // 1. Instantly stop broadcast and leave channel so user has privacy
+      await AgoraService.leaveChannel();
+      
+      // 2. Wrap Firebase update in isolated try/catch so it doesn't break the pipeline
       if (_channelId.isNotEmpty) {
-        await FirebaseFirestore.instance.collection('bookings').doc(_channelId).update({'status': 'completed'});
+        try {
+          await FirebaseFirestore.instance.collection('bookings').doc(_channelId).update({'status': 'completed'});
+        } catch(e) {
+          debugPrint('Error updating booking status: $e');
+        }
       }
+
+      // 3. Generate final AI notes if any discussion happened
       AgoraService.addTranscriptSnippet('Session ended after ${_formatTime(_sessionTime)} with $_expertName.');
       final aiNotes = await AgoraService.generateSessionNotes();
-      await AgoraService.leaveChannel();
-      if (mounted && aiNotes != null) {
+      
+      if (mounted && aiNotes != null && !aiNotes.contains("No conversation data")) {
         final savedSession = await notesController.saveSession(
           expertName: _expertName,
           expertTitle: _expertTitle,
@@ -339,10 +366,12 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   Future<void> _forceEndSessionFromRemote() async {
     setState(() => _sessionState = 'connecting'); 
     try {
+      await AgoraService.leaveChannel();
+      
       AgoraService.addTranscriptSnippet('Session was ended by the other participant.');
       final aiNotes = await AgoraService.generateSessionNotes();
-      await AgoraService.leaveChannel();
-      if (mounted && aiNotes != null) {
+      
+      if (mounted && aiNotes != null && !aiNotes.contains("No conversation data")) {
          final savedSession = await notesController.saveSession(
           expertName: _expertName,
           expertTitle: _expertTitle,
@@ -792,6 +821,8 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     );
   }
 
+  bool _isExtractingInsights = false;
+
   Widget _buildNotesPanel() {
     return Container(
       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(-5, 0))]),
@@ -802,13 +833,74 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
             decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFFFA726), Color(0xFFFFB74D)])),
             child: Row(children: [const Icon(Icons.auto_awesome, color: Colors.white, size: 24), const SizedBox(width: 12), const Expanded(child: Text('AI Session Notes', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))), IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => setState(() => _showNotes = false))]),
           ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: _isExtractingInsights
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.psychology),
+                label: const Text('Extract Live Insights from Call', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                onPressed: _isExtractingInsights ? null : () async {
+                  setState(() => _isExtractingInsights = true);
+                  try {
+                    final aiNotes = await AgoraService.generateSessionNotes();
+                    if (aiNotes != null) {
+                      notesController.addGeneratedNote(aiNotes);
+                    } else {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to generate insights.'), backgroundColor: Colors.red));
+                    }
+                  } catch (e, stacktrace) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('AI Backend Error:\n$e'),
+                          backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 10),
+                          action: SnackBarAction(label: 'Dismiss', textColor: Colors.white, onPressed: () {}),
+                        ),
+                      );
+                      debugPrint('Insight Extraction Error: $e\n$stacktrace');
+                    }
+                  } finally {
+                    if (mounted) setState(() => _isExtractingInsights = false);
+                  }
+                },
+              ),
+            ),
+          ),
           Expanded(
             child: Obx(() => ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: notesController.currentSessionNotes.length,
               itemBuilder: (context, index) {
                 final note = notesController.currentSessionNotes[index];
-                return ListTile(title: Text(note.speaker), subtitle: Text(note.content));
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.auto_awesome, color: Colors.orange, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(note.speaker, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange))),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(note.content),
+                      ],
+                    ),
+                  ),
+                );
               },
             )),
           ),

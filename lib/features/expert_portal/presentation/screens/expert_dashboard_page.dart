@@ -632,6 +632,7 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
                           'expertName': booking['expert_name'],
                           'expertTitle': booking['expert_title'],
                           'initialCode': sessionCode,
+                          'isExpert': true,
                         });
                       }
                     },

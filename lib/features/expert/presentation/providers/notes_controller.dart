@@ -46,17 +46,18 @@ class NotesController extends GetxController {
     isRecording.value = false;
   }
 
-  void simulateAINoteGeneration(String speaker, String message) {
+  void addGeneratedNote(String content) {
     if (!isRecording.value) return;
 
     final newNote = NoteDetail(
       id: const Uuid().v4(),
       timestamp: DateTime.now(),
-      speaker: speaker,
-      content: message,
+      speaker: "AI Assistant generated this note insight",
+      content: content,
       type: 'key-point',
     );
-    _currentSessionNotes.add(newNote);
+    // Add to top of current notes
+    _currentSessionNotes.insert(0, newNote);
   }
 
   Future<SessionNote> saveSession({

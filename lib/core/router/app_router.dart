@@ -121,6 +121,7 @@ class AppRouter {
             expertName: extras?['expertName'],
             expertTitle: extras?['expertTitle'],
             initialCode: extras?['initialCode'],
+            isExpert: (extras?['isExpert'] as bool?) ?? false,
           );
         },
       ),

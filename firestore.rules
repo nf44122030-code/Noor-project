@@ -13,6 +13,12 @@ service cloud.firestore {
       match /subscriptions/{id} {
         allow read: if request.auth.uid == uid;
       }
+      match /analytics_history/{id} {
+        allow read, write: if request.auth.uid == uid;
+      }
+      match /chats/{id} {
+        allow read, write: if request.auth.uid == uid;
+      }
     }
     
     // Stripe Extension collection: users can read/write their own checkout sessions and read subscriptions

@@ -1,12 +1,9 @@
 import 'dart:io';
-import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:spreadsheet_decoder/spreadsheet_decoder.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +15,45 @@ import '../../../../core/theme/theme_controller.dart';
 
 class AnalyticsMemoryCache {
   static final Map<String, Uint8List> files = {};
+}
+
+// ── Isolates for Background Non-Blocking Processing ──────────────────────────
+
+// Removed _base64DecodeIsolate as legacy LocalStorage fallback is deleted
+Map<String, dynamic> _parseCsvIsolate(Uint8List bytes) {
+  final csvString = String.fromCharCodes(bytes);
+  final rows = const CsvToListConverter(eol: '\n').convert(csvString);
+  if (rows.isEmpty) {
+    return {'headers': <String>[], 'rows': <List<dynamic>>[]};
+  }
+  final headers = rows.first.map((e) => e.toString().trim()).toList();
+  final dataRows = rows.skip(1).toList();
+  return {'headers': headers, 'rows': dataRows};
+}
+
+Map<String, dynamic> _parseExcelIsolate(Uint8List bytes) {
+  final decoder = SpreadsheetDecoder.decodeBytes(bytes);
+  if (decoder.tables.isEmpty) {
+     throw Exception('The Excel file contains no data sheets.');
+  }
+  
+  final sheet = decoder.tables[decoder.tables.keys.first];
+  if (sheet == null) {
+     throw Exception('Could not read the first sheet.');
+  }
+  
+  final allRows = sheet.rows;
+  if (allRows.isEmpty) {
+    return {'headers': <String>[], 'rows': <List<dynamic>>[]};
+  }
+
+  final headers = allRows.first.map((c) => c?.toString().trim() ?? '').toList();
+  final dataRows = allRows
+      .skip(1)
+      .map((r) => r.map((c) => c ?? '').toList())
+      .toList();
+      
+  return {'headers': headers, 'rows': dataRows};
 }
 
 class DataAnalyticsPage extends StatefulWidget {
@@ -42,8 +78,6 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
   List<List<dynamic>> _rows = [];
   List<_ChartConfig> _charts = [];
 
-  final FirebaseService _firebaseService = FirebaseService();
-  
   bool _historyOpen = false;
   bool _historyEverOpened = false;
   List<Map<String, dynamic>> _historyItems = [];
@@ -64,17 +98,7 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
   Future<void> _loadHistoryList() async {
     setState(() => _isLoadingHistory = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final historyStr = prefs.getString('analytics_local_history') ?? '[]';
-      List<Map<String, dynamic>> items = [];
-      try {
-        final List<dynamic> jsonList = jsonDecode(historyStr);
-        items = jsonList.map((e) => Map<String, dynamic>.from(e)).toList();
-      } catch (e) {
-        debugPrint('Corrupted history string: $e, wiping clean.');
-        await prefs.setString('analytics_local_history', '[]');
-      }
-      
+      final items = await FirebaseService().getAnalyticsHistory();
       if (mounted) {
         setState(() {
           _historyItems = items;
@@ -82,7 +106,7 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
         });
       }
     } catch (e) {
-      debugPrint('Error loading local history: $e');
+      debugPrint('Error loading cloud history: $e');
       if (mounted) setState(() => _isLoadingHistory = false);
     }
   }
@@ -97,38 +121,37 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
 
     final id = item['fileId'];
     final ext = item['ext'];
-    if (id == null || id.isEmpty) {
+    final url = item['url'];
+    if (id == null || id.isEmpty || url == null) {
       setState(() => _isLoading = false);
       return;
     }
-
     try {
       Uint8List? bytes = AnalyticsMemoryCache.files[id];
-      final prefs = await SharedPreferences.getInstance();
       
       if (bytes == null) {
-        final base64Data = prefs.getString('analytics_web_data_$id');
-        if (base64Data != null) {
-          bytes = base64Decode(base64Data);
-          AnalyticsMemoryCache.files[id] = bytes; // Repopulate memory cache
+        bytes = await FirebaseService().downloadAnalyticsData(url);
+        
+        if (bytes != null) {
+          AnalyticsMemoryCache.files[id] = bytes;
         } else {
-          throw Exception('Dataset discarded due to strict OS memory quotas. Please start a New Analysis.');
+          throw Exception('Failed to download from cloud storage.');
         }
       }
       
-      // Mark as current active screen
+      final prefs = await SharedPreferences.getInstance();
       await prefs.setString('analytics_active_id', id);
 
       if (ext == 'csv') {
-        _parseCsv(bytes);
+        await _parseCsv(bytes);
       } else {
-        _parseExcel(bytes);
+        await _parseExcel(bytes);
       }
     } catch (e) {
       debugPrint('Error loading dataset: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load dataset.'), backgroundColor: Colors.redAccent),
+          const SnackBar(content: Text('Failed to load dataset from Cloud.'), backgroundColor: Colors.redAccent),
         );
       }
       setState(() => _isLoading = false);
@@ -164,31 +187,10 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
       // 1. Instantly store in universally safe static RAM cache
       AnalyticsMemoryCache.files[id] = bytes;
       
-      // 2. Opportunistically backup to SharedPreferences if OS disk quota allows
-      final prefs = await SharedPreferences.getInstance();
-      try {
-        final base64String = base64Encode(bytes);
-        await prefs.setString('analytics_web_data_$id', base64String);
-      } catch (e) {
-        debugPrint('File exceeds SharedPreferences disk quota. Relaying strictly to RAM cache.');
-      }
+      // 2. Offload seamlessly to Firebase cloud for cross-device support
+      await FirebaseService().uploadAnalyticsData(bytes, name, ext, _rowCount);
 
-      List<Map<String, dynamic>> historyList = [];
-      try {
-        final historyStr = prefs.getString('analytics_local_history') ?? '[]';
-        historyList = List<Map<String,dynamic>>.from(jsonDecode(historyStr));
-      } catch (e) {
-        historyList = [];
-      }
-      
-      historyList.insert(0, {
-        'fileId': id,
-        'name': name,
-        'ext': ext,
-        'rowCount': _rowCount,
-      });
-      
-      await prefs.setString('analytics_local_history', jsonEncode(historyList));
+      final prefs = await SharedPreferences.getInstance();
       await prefs.setString('analytics_active_id', id);
       
       await _loadHistoryList();
@@ -196,20 +198,20 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Saved successfully to local history!'),
+            content: Text('Saved automatically to Cloud History!'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           )
         );
       }
     } catch (e) {
-      debugPrint('Error saving data locally: $e');
+      debugPrint('Error saving data to cloud: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('FATAL SAVE ERROR: $e'),
+            content: Text('Cloud Save Error: $e'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 10),
+            duration: const Duration(seconds: 5),
           )
         );
       }
@@ -217,22 +219,12 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
   }
 
   Future<void> _deleteDataset(String fileId, String ext) async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Remove from history tracking
-    List<Map<String, dynamic>> historyList = [];
-    try {
-      final historyStr = prefs.getString('analytics_local_history') ?? '[]';
-      historyList = List<Map<String,dynamic>>.from(jsonDecode(historyStr));
-    } catch(e) { /* ignore */ }
-    
-    historyList.removeWhere((item) => item['fileId'] == fileId);
-    await prefs.setString('analytics_local_history', jsonEncode(historyList));
-    
-    // Delete actual file and memory cache
     try {
       AnalyticsMemoryCache.files.remove(fileId);
-      await prefs.remove('analytics_web_data_$fileId');
+      await FirebaseService().deleteAnalyticsData(fileId, ext);
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('analytics_web_data_$fileId'); // clean up legacy files
     } catch (e) {
       debugPrint('Error deleting payload data: $e');
     }
@@ -240,6 +232,7 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     await _loadHistoryList();
     
     // If we're deleting what's currently on the screen, clear the screen
+    final prefs = await SharedPreferences.getInstance();
     final activeId = prefs.getString('analytics_active_id');
     if (activeId == fileId) {
        _clearActiveData();
@@ -322,17 +315,15 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
         _fileName = file.name;
       });
 
-      await _saveDataLocally(bytes, ext, file.name);
-
       // Parse file
       if (ext == 'csv') {
-        // Use Future.delayed to allow showing the loading state before parsing blocks the main thread
-        await Future.delayed(const Duration(milliseconds: 100));
-        _parseCsv(bytes);
+        await _parseCsv(bytes);
       } else {
-        await Future.delayed(const Duration(milliseconds: 100));
-        _parseExcel(bytes);
+        await _parseExcel(bytes);
       }
+      
+      // Upload to Firebase Cloud exactly once parsing succeeds and rowCount is accurate
+      await _saveDataLocally(bytes, ext, file.name);
     } catch (e) {
       debugPrint('File pick error: $e');
       if (mounted) {
@@ -350,19 +341,24 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     }
   }
 
-  void _parseCsv(Uint8List bytes) {
+  Future<void> _parseCsv(Uint8List bytes) async {
     try {
-      final csvString = String.fromCharCodes(bytes);
-      final rows =
-          const CsvToListConverter(eol: '\n').convert(csvString);
-      if (rows.isEmpty) {
+      final result = await compute(_parseCsvIsolate, bytes);
+      
+      final newHeaders = List<String>.from(result['headers']);
+      final newRows = List<List<dynamic>>.from(result['rows']);
+      
+      if (newRows.isEmpty) {
         setState(() => _isLoading = false);
         return;
       }
-      _headers = rows.first.map((e) => e.toString().trim()).toList();
-      _rows = rows.skip(1).toList();
-      _rowCount = _rows.length;
-      _updateLocalRowCount();
+      
+      setState(() {
+         _headers = newHeaders;
+         _rows = newRows;
+         _rowCount = _rows.length;
+      });
+      
       _generateCharts();
     } catch (e) {
       debugPrint('CSV parse error: $e');
@@ -375,32 +371,24 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     }
   }
 
-  void _parseExcel(Uint8List bytes) {
+  Future<void> _parseExcel(Uint8List bytes) async {
     try {
-      final decoder = SpreadsheetDecoder.decodeBytes(bytes);
-      if (decoder.tables.isEmpty) {
-         throw Exception('The Excel file contains no data sheets.');
-      }
+      final result = await compute(_parseExcelIsolate, bytes);
       
-      final sheet = decoder.tables[decoder.tables.keys.first];
-      if (sheet == null) {
-         throw Exception('Could not read the first sheet.');
-      }
+      final newHeaders = List<String>.from(result['headers']);
+      final newRows = List<List<dynamic>>.from(result['rows']);
       
-      final allRows = sheet.rows;
-      if (allRows.isEmpty) {
+      if (newRows.isEmpty) {
         setState(() => _isLoading = false);
         return;
       }
 
-      _headers =
-          allRows.first.map((c) => c?.toString().trim() ?? '').toList();
-      _rows = allRows
-          .skip(1)
-          .map((r) => r.map((c) => c ?? '').toList())
-          .toList();
-      _rowCount = _rows.length;
-      _updateLocalRowCount();
+      setState(() {
+         _headers = newHeaders;
+         _rows = newRows;
+         _rowCount = _rows.length;
+      });
+      
       _generateCharts();
     } catch (e, stack) {
       debugPrint('Excel parse error: $e\n$stack');
@@ -414,21 +402,6 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
         );
       }
       setState(() => _isLoading = false);
-    }
-  }
-
-  void _updateLocalRowCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<Map<String, dynamic>> historyList = [];
-    try {
-      final historyStr = prefs.getString('analytics_local_history') ?? '[]';
-      historyList = List<Map<String,dynamic>>.from(jsonDecode(historyStr));
-    } catch(e) { return; }
-    
-    if (historyList.isNotEmpty && historyList.first['rowCount'] != _rowCount) {
-      historyList.first['rowCount'] = _rowCount;
-      await prefs.setString('analytics_local_history', jsonEncode(historyList));
-      _loadHistoryList();
     }
   }
 
@@ -572,8 +545,53 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
       ));
     }
 
+    // ── Precalculate Data Exactly Once to Prevent Build-Time UI Freezing ──
+    final completeCharts = <_ChartConfig>[];
+    for (final config in charts.take(10)) {
+      Map<String, double>? aggMap;
+      List<List<double>>? numData;
+      
+      try {
+        if (config.type == _ChartType.bar || config.type == _ChartType.horizontalBar) {
+           if (config.xCol != null && config.yCols.isNotEmpty) {
+             aggMap = _aggregateByCategory(config.xCol!, config.yCols.first);
+           }
+        } else if (config.type == _ChartType.pie) {
+           if (config.xCol != null) {
+              aggMap = _aggregateByCategory(config.xCol!, config.yCols.first);
+           } else {
+             aggMap = {};
+             for(final col in config.yCols) {
+               final raw = _numericColumn(col);
+               final val = raw.isEmpty ? 0.0 : raw.reduce((a,b)=>a+b);
+               aggMap[_headers[col]] = val;
+             }
+           }
+        } else if (config.type == _ChartType.line || config.type == _ChartType.scatter) {
+           numData = [];
+           if (config.type == _ChartType.scatter && config.xCol != null) {
+              numData.add(_numericColumn(config.xCol!));
+           }
+           for(final col in config.yCols) {
+             numData.add(_numericColumn(col));
+           }
+        }
+      } catch (e) {
+        debugPrint('Error precalculating chart data: $e');
+      }
+
+      completeCharts.add(_ChartConfig(
+        title: config.title,
+        type: config.type,
+        xCol: config.xCol,
+        yCols: config.yCols,
+        preAggregatedMap: aggMap,
+        preNumericData: numData,
+      ));
+    }
+
     setState(() {
-      _charts = charts.take(10).toList();
+      _charts = completeCharts;
       _isLoading = false;
     });
     _fadeCtrl.forward(from: 0);
@@ -1154,8 +1172,9 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     // Build spots for each Y column
     final List<LineChartBarData> lines = [];
     for (int ci = 0; ci < config.yCols.length; ci++) {
-      final col = config.yCols[ci];
-      final values = _numericColumn(col);
+      final values = config.preNumericData == null || config.preNumericData!.length <= ci 
+          ? <double>[] 
+          : config.preNumericData![ci];
       if (values.isEmpty) continue;
 
       // Take max 50 points for readability
@@ -1224,11 +1243,10 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
 
   // ── Bar Chart ───────────────────────────────────────────────
   Widget _buildBarChart(_ChartConfig config, int index, bool isDark) {
-    if (config.xCol == null || config.yCols.isEmpty) {
+    if (config.preAggregatedMap == null || config.preAggregatedMap!.isEmpty) {
       return const Center(child: Text('Insufficient data'));
     }
-    final agg = _aggregateByCategory(config.xCol!, config.yCols.first);
-    if (agg.isEmpty) return const Center(child: Text('No data'));
+    final agg = config.preAggregatedMap!;
 
     final entries = agg.entries.take(12).toList();
     final color = _chartColors[index % _chartColors.length];
@@ -1296,13 +1314,11 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
   }
 
   // ── Horizontal Bar (Ranking) ────────────────────────────────
-  Widget _buildHorizontalBarChart(
-      _ChartConfig config, int index, bool isDark) {
-    if (config.xCol == null || config.yCols.isEmpty) {
+  Widget _buildHorizontalBarChart(_ChartConfig config, int index, bool isDark) {
+    if (config.preAggregatedMap == null || config.preAggregatedMap!.isEmpty) {
       return const Center(child: Text('Insufficient data'));
     }
-    final agg = _aggregateByCategory(config.xCol!, config.yCols.first);
-    if (agg.isEmpty) return const Center(child: Text('No data'));
+    final agg = config.preAggregatedMap!;
 
     final sorted = agg.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -1368,20 +1384,10 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
 
   // ── Pie Chart ───────────────────────────────────────────────
   Widget _buildPieChart(_ChartConfig config, int index, bool isDark) {
-    final Map<String, double> slices = {};
-
-    if (config.xCol != null && config.yCols.isNotEmpty) {
-      slices.addAll(_aggregateByCategory(config.xCol!, config.yCols.first));
-    } else {
-      // Sum each cost column across all rows
-      for (final col in config.yCols) {
-        final sum = _numericColumn(col)
-            .fold<double>(0, (a, b) => a + b);
-        if (sum > 0) slices[_headers[col]] = sum;
-      }
+    if (config.preAggregatedMap == null || config.preAggregatedMap!.isEmpty) {
+      return const Center(child: Text('Insufficient data'));
     }
-
-    if (slices.isEmpty) return const Center(child: Text('No data'));
+    final slices = config.preAggregatedMap!;
     final total = slices.values.fold<double>(0, (a, b) => a + b);
 
     final entries = slices.entries.take(8).toList();
@@ -1452,12 +1458,12 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
 
   // ── Scatter Chart ───────────────────────────────────────────
   Widget _buildScatterChart(_ChartConfig config, int index, bool isDark) {
-    if (config.xCol == null || config.yCols.isEmpty) {
+    if (config.preNumericData == null || config.preNumericData!.length < 2) {
       return const Center(child: Text('Insufficient data'));
     }
 
-    final xVals = _numericColumn(config.xCol!);
-    final yVals = _numericColumn(config.yCols.first);
+    final xVals = config.preNumericData![0];
+    final yVals = config.preNumericData![1];
     final count = min(xVals.length, yVals.length);
     if (count == 0) return const Center(child: Text('No data'));
 
@@ -1531,10 +1537,16 @@ class _ChartConfig {
   final int? xCol;
   final List<int> yCols;
 
+  // Cached data to avoid looping through thousands of rows during UI render
+  final Map<String, double>? preAggregatedMap;
+  final List<List<double>>? preNumericData;
+
   _ChartConfig({
     required this.title,
     required this.type,
     required this.xCol,
     required this.yCols,
+    this.preAggregatedMap,
+    this.preNumericData,
   });
 }
