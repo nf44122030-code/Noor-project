@@ -177,8 +177,27 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
       await prefs.setString('analytics_active_id', id);
       
       await _loadHistoryList();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Saved successfully to local history!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          )
+        );
+      }
     } catch (e) {
       debugPrint('Error saving data locally: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('FATAL SAVE ERROR: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 10),
+          )
+        );
+      }
     }
   }
 
