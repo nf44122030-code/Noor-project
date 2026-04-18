@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -98,14 +99,25 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     }
 
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/analytics_$id.$ext');
+      Uint8List bytes;
       
-      if (!await file.exists()) {
-        throw Exception('File no longer exists on device.');
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        final base64Data = prefs.getString('analytics_web_data_$id');
+        if (base64Data == null) {
+          throw Exception('Web cache file no longer exists.');
+        }
+        bytes = base64Decode(base64Data);
+      } else {
+        final dir = await getApplicationDocumentsDirectory();
+        final file = File('${dir.path}/analytics_$id.$ext');
+        
+        if (!await file.exists()) {
+          throw Exception('File no longer exists on device.');
+        }
+        
+        bytes = await file.readAsBytes();
       }
-      
-      final bytes = await file.readAsBytes();
       
       // Mark as current active screen
       final prefs = await SharedPreferences.getInstance();
@@ -152,12 +164,17 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
   Future<void> _saveDataLocally(Uint8List bytes, String ext, String name) async {
     try {
       final id = DateTime.now().millisecondsSinceEpoch.toString();
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/analytics_$id.$ext');
-      await file.writeAsBytes(bytes);
-
       final prefs = await SharedPreferences.getInstance();
       
+      if (kIsWeb) {
+        final base64String = base64Encode(bytes);
+        await prefs.setString('analytics_web_data_$id', base64String);
+      } else {
+        final dir = await getApplicationDocumentsDirectory();
+        final file = File('${dir.path}/analytics_$id.$ext');
+        await file.writeAsBytes(bytes);
+      }
+
       List<Map<String, dynamic>> historyList = [];
       try {
         final historyStr = prefs.getString('analytics_local_history') ?? '[]';
@@ -216,10 +233,14 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     
     // Delete actual file
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/analytics_$fileId.$ext');
-      if (await file.exists()) {
-        await file.delete();
+      if (kIsWeb) {
+        await prefs.remove('analytics_web_data_$fileId');
+      } else {
+        final dir = await getApplicationDocumentsDirectory();
+        final file = File('${dir.path}/analytics_$fileId.$ext');
+        if (await file.exists()) {
+          await file.delete();
+        }
       }
     } catch (e) {
       debugPrint('Error deleting physical file: $e');
