@@ -99,28 +99,14 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     }
 
     try {
-      Uint8List bytes;
-      
-      if (kIsWeb) {
-        final prefs = await SharedPreferences.getInstance();
-        final base64Data = prefs.getString('analytics_web_data_$id');
-        if (base64Data == null) {
-          throw Exception('Web cache file no longer exists.');
-        }
-        bytes = base64Decode(base64Data);
-      } else {
-        final dir = await getApplicationDocumentsDirectory();
-        final file = File('${dir.path}/analytics_$id.$ext');
-        
-        if (!await file.exists()) {
-          throw Exception('File no longer exists on device.');
-        }
-        
-        bytes = await file.readAsBytes();
+      final prefs = await SharedPreferences.getInstance();
+      final base64Data = prefs.getString('analytics_web_data_$id');
+      if (base64Data == null) {
+        throw Exception('Cache file no longer exists.');
       }
+      final bytes = base64Decode(base64Data);
       
       // Mark as current active screen
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setString('analytics_active_id', id);
 
       if (ext == 'csv') {
@@ -166,14 +152,8 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
       final id = DateTime.now().millisecondsSinceEpoch.toString();
       final prefs = await SharedPreferences.getInstance();
       
-      if (kIsWeb) {
-        final base64String = base64Encode(bytes);
-        await prefs.setString('analytics_web_data_$id', base64String);
-      } else {
-        final dir = await getApplicationDocumentsDirectory();
-        final file = File('${dir.path}/analytics_$id.$ext');
-        await file.writeAsBytes(bytes);
-      }
+      final base64String = base64Encode(bytes);
+      await prefs.setString('analytics_web_data_$id', base64String);
 
       List<Map<String, dynamic>> historyList = [];
       try {
@@ -233,17 +213,9 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     
     // Delete actual file
     try {
-      if (kIsWeb) {
-        await prefs.remove('analytics_web_data_$fileId');
-      } else {
-        final dir = await getApplicationDocumentsDirectory();
-        final file = File('${dir.path}/analytics_$fileId.$ext');
-        if (await file.exists()) {
-          await file.delete();
-        }
-      }
+      await prefs.remove('analytics_web_data_$fileId');
     } catch (e) {
-      debugPrint('Error deleting physical file: $e');
+      debugPrint('Error deleting payload data: $e');
     }
 
     await _loadHistoryList();
