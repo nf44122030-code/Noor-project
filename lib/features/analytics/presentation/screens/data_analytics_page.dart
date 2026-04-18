@@ -230,17 +230,39 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
   void _parseExcel(Uint8List bytes) {
     try {
       final excel = xl.Excel.decodeBytes(bytes);
-      final sheet = excel.tables[excel.tables.keys.first]!;
+      if (excel.tables.isEmpty) {
+         throw Exception('The Excel file contains no data sheets.');
+      }
+      
+      final sheet = excel.tables[excel.tables.keys.first];
+      if (sheet == null) {
+         throw Exception('Could not read the first sheet.');
+      }
+      
       final allRows = sheet.rows;
       if (allRows.isEmpty) {
         setState(() => _isLoading = false);
         return;
       }
+      
+      // Helper to extract primitive values from excel 4.x CellValue
+      dynamic extractValue(xl.Data? cell) {
+        if (cell == null || cell.value == null) return '';
+        final v = cell.value;
+        if (v is xl.TextCellValue) return v.value.text ?? '';
+        if (v is xl.IntCellValue) return v.value;
+        if (v is xl.DoubleCellValue) return v.value;
+        if (v is xl.BoolCellValue) return v.value;
+        if (v is xl.DateCellValue) return '${v.year}-${v.month}-${v.day}';
+        // Fallback for custom or unknown types
+        return v.toString();
+      }
+
       _headers =
-          allRows.first.map((c) => c?.value?.toString().trim() ?? '').toList();
+          allRows.first.map((c) => extractValue(c).toString().trim()).toList();
       _rows = allRows
           .skip(1)
-          .map((r) => r.map((c) => c?.value ?? '').toList())
+          .map((r) => r.map((c) => extractValue(c)).toList())
           .toList();
       _rowCount = _rows.length;
       _generateCharts();
