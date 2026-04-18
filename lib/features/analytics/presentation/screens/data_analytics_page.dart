@@ -16,6 +16,10 @@ import '../../../../core/services/firebase_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_controller.dart';
 
+class AnalyticsMemoryCache {
+  static final Map<String, Uint8List> files = {};
+}
+
 class DataAnalyticsPage extends StatefulWidget {
   const DataAnalyticsPage({super.key});
 
@@ -99,12 +103,18 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     }
 
     try {
+      Uint8List? bytes = AnalyticsMemoryCache.files[id];
       final prefs = await SharedPreferences.getInstance();
-      final base64Data = prefs.getString('analytics_web_data_$id');
-      if (base64Data == null) {
-        throw Exception('Cache file no longer exists.');
+      
+      if (bytes == null) {
+        final base64Data = prefs.getString('analytics_web_data_$id');
+        if (base64Data != null) {
+          bytes = base64Decode(base64Data);
+          AnalyticsMemoryCache.files[id] = bytes; // Repopulate memory cache
+        } else {
+          throw Exception('Dataset discarded due to strict OS memory quotas. Please start a New Analysis.');
+        }
       }
-      final bytes = base64Decode(base64Data);
       
       // Mark as current active screen
       await prefs.setString('analytics_active_id', id);
@@ -150,10 +160,18 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
   Future<void> _saveDataLocally(Uint8List bytes, String ext, String name) async {
     try {
       final id = DateTime.now().millisecondsSinceEpoch.toString();
-      final prefs = await SharedPreferences.getInstance();
       
-      final base64String = base64Encode(bytes);
-      await prefs.setString('analytics_web_data_$id', base64String);
+      // 1. Instantly store in universally safe static RAM cache
+      AnalyticsMemoryCache.files[id] = bytes;
+      
+      // 2. Opportunistically backup to SharedPreferences if OS disk quota allows
+      final prefs = await SharedPreferences.getInstance();
+      try {
+        final base64String = base64Encode(bytes);
+        await prefs.setString('analytics_web_data_$id', base64String);
+      } catch (e) {
+        debugPrint('File exceeds SharedPreferences disk quota. Relaying strictly to RAM cache.');
+      }
 
       List<Map<String, dynamic>> historyList = [];
       try {
@@ -211,8 +229,9 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     historyList.removeWhere((item) => item['fileId'] == fileId);
     await prefs.setString('analytics_local_history', jsonEncode(historyList));
     
-    // Delete actual file
+    // Delete actual file and memory cache
     try {
+      AnalyticsMemoryCache.files.remove(fileId);
       await prefs.remove('analytics_web_data_$fileId');
     } catch (e) {
       debugPrint('Error deleting payload data: $e');
