@@ -151,6 +151,8 @@ class _ExplorePageState extends State<ExplorePage> {
     try {
       final articlesData = await _firebaseService.getDynamicArticles(forceRefresh: force);
 
+      if (!mounted) return;
+
       setState(() {
         if (articlesData['featured'] != null) {
           _featuredArticle = Article.fromMap(articlesData['featured']);
@@ -177,6 +179,8 @@ class _ExplorePageState extends State<ExplorePage> {
       }
     } catch (e) {
       debugPrint('Error loading explore data: $e');
+      if (!mounted) return;
+      
       setState(() {
         _isLoading = false;
         _isRefreshingAI = false;
