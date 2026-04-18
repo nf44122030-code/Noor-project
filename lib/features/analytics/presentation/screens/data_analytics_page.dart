@@ -136,11 +136,11 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
       final file = result.files.first;
       final ext = file.name.split('.').last.toLowerCase();
 
-      if (!['xlsx', 'xls', 'csv'].contains(ext)) {
+      if (!['xlsx', 'csv'].contains(ext)) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Please upload an Excel (.xlsx) or CSV file.'),
+              content: Text('Please upload a modern Excel (.xlsx) or CSV file. Older .xls files are not supported.'),
               backgroundColor: Colors.redAccent,
             ),
           );
@@ -266,11 +266,15 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
           .toList();
       _rowCount = _rows.length;
       _generateCharts();
-    } catch (e) {
-      debugPrint('Excel parse error: $e');
+    } catch (e, stack) {
+      debugPrint('Excel parse error: $e\n$stack');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error parsing Excel: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text('Error parsing Excel: $e (See console for details, ensure the file is a valid .xlsx)'),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
       setState(() => _isLoading = false);
