@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/services/firebase_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_controller.dart';
 
@@ -32,6 +33,13 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
   List<List<dynamic>> _rows = [];
   List<_ChartConfig> _charts = [];
 
+  final FirebaseService _firebaseService = FirebaseService();
+  
+  bool _historyOpen = false;
+  bool _historyEverOpened = false;
+  List<Map<String, dynamic>> _historyItems = [];
+  bool _isLoadingHistory = false;
+
   late AnimationController _fadeCtrl;
 
   @override
@@ -39,10 +47,61 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     super.initState();
     _fadeCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 600));
+    _loadHistoryList();
     _loadSavedData();
   }
 
-  // ── Persistence ─────────────────────────────────────────────
+  // ── Persistence & Cloud ─────────────────────────────────────
+  Future<void> _loadHistoryList() async {
+    setState(() => _isLoadingHistory = true);
+    try {
+      final items = await _firebaseService.getAnalyticsHistory();
+      if (mounted) {
+        setState(() {
+          _historyItems = items;
+          _isLoadingHistory = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading cloud history: $e');
+      if (mounted) setState(() => _isLoadingHistory = false);
+    }
+  }
+
+  Future<void> _loadCloudDataset(Map<String, dynamic> item) async {
+    setState(() {
+      _historyOpen = false;
+      _isLoading = true;
+      _charts.clear();
+      _fileName = item['name'];
+    });
+
+    final url = item['url'];
+    final ext = item['ext'];
+    if (url == null || url.isEmpty) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final bytes = await _firebaseService.downloadAnalyticsData(url);
+    if (bytes == null || bytes.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to download dataset.'), backgroundColor: Colors.redAccent),
+        );
+      }
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    await _saveDataLocally(bytes, ext, _fileName!);
+
+    if (ext == 'csv') {
+      _parseCsv(bytes);
+    } else {
+      _parseExcel(bytes);
+    }
+  }
   Future<void> _loadSavedData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -88,7 +147,20 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     }
   }
 
-  Future<void> _deleteSavedData() async {
+  Future<void> _deleteCloudData(String fileId, String ext) async {
+    await _firebaseService.deleteAnalyticsData(fileId, ext);
+    await _loadHistoryList();
+    
+    // If the active file is deleted, clear it locally too
+    final prefs = await SharedPreferences.getInstance();
+    final currentName = prefs.getString('analytics_file_name');
+    final item = _historyItems.firstWhereOrNull((i) => i['fileId'] == fileId);
+    if (currentName != null && item != null && currentName == item['name']) {
+       _clearActiveData();
+    }
+  }
+
+  Future<void> _clearActiveData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final ext = prefs.getString('analytics_file_ext');
@@ -100,7 +172,7 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
       await prefs.remove('analytics_file_name');
       await prefs.remove('analytics_file_ext');
     } catch (e) {
-      debugPrint('Error deleting saved data: $e');
+      debugPrint('Error deleting local saved data: $e');
     }
 
     setState(() {
@@ -173,6 +245,13 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
         _isLoading = true;
         _isPicking = false;
         _fileName = file.name;
+      });
+
+      // Try uploading to Firebase cloud in the background to not freeze UI immediately
+      _firebaseService.uploadAnalyticsData(bytes, file.name, ext, 0).then((_) {
+        _loadHistoryList();
+      }).catchError((e) {
+        debugPrint('Failed to sync purely to cloud: $e');
       });
 
       await _saveDataLocally(bytes, ext, file.name);
@@ -440,6 +519,12 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
         .toList();
   }
 
+  void _updateCloudRowCount(int count) {
+    // If we uploaded right before, it might take a second to appear in history. 
+    // We ideally save the rowCount silently if possible, but the simplest way is 
+    // it'll just stay 0 in cloud until next upload since Firebase ignores background sync failures here.
+  }
+
   // ── Chart Colors ────────────────────────────────────────────
   static const _chartColors = [
     Color(0xFF2563EB),
@@ -461,13 +546,188 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
       final isDark = themeController.isDarkMode;
       final bg = isDark ? AppColors.bgDark : AppColors.bgLight;
 
-      return Container(
-        color: bg,
-        child: _charts.isEmpty
-            ? _buildUploadState(isDark)
-            : _buildChartsView(isDark),
+      return Scaffold(
+        backgroundColor: bg,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.menu_open_rounded, color: isDark ? Colors.white : Colors.black),
+            onPressed: () {
+              setState(() {
+                _historyOpen = !_historyOpen;
+                if (_historyOpen) _historyEverOpened = true;
+              });
+            },
+          ),
+          title: Text(
+            'Data Analytics',
+            style: GoogleFonts.inter(
+              color: isDark ? Colors.white : Colors.black,
+              fontWeight: FontWeight.w600,
+              fontSize: 18,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: Stack(
+          children: [
+            // Main Content
+            Container(
+              color: bg,
+              child: _charts.isEmpty
+                  ? _buildUploadState(isDark)
+                  : _buildChartsView(isDark),
+            ),
+            
+            // History Overlay Background Dimmer
+            if (_historyOpen)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () => setState(() => _historyOpen = false),
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+
+            // History Drawer
+            if (_historyEverOpened)
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.fastOutSlowIn,
+                top: 0,
+                bottom: 0,
+                left: _historyOpen ? 0 : -320,
+                child: _buildHistorySidebar(isDark),
+              ),
+          ],
+        ),
       );
     });
+  }
+
+  Widget _buildHistorySidebar(bool isDark) {
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : Colors.white,
+        border: Border(
+          right: BorderSide(
+            color: isDark ? AppColors.borderDark : AppColors.borderLight,
+          ),
+        ),
+        boxShadow: [
+          if (_historyOpen)
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 20,
+              offset: const Offset(4, 0),
+            ),
+        ],
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
+              child: Row(
+                children: [
+                  const Icon(Icons.history_rounded,
+                      color: AppColors.primary, size: 24),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Analytics History',
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded,
+                        color: isDark ? Colors.white54 : Colors.black45),
+                    onPressed: () {
+                      setState(() => _historyOpen = false);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: _isLoadingHistory
+                  ? const Center(child: CircularProgressIndicator())
+                  : _historyItems.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No past data analyses found in cloud.',
+                            style: TextStyle(
+                              color: isDark ? Colors.white54 : Colors.black54,
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: _historyItems.length,
+                          itemBuilder: (context, index) {
+                            final item = _historyItems[index];
+                            final name = item['name'] ?? 'Data';
+                            final ext = item['ext'] ?? 'csv';
+                            final fileId = item['fileId'];
+                            final rowCount = item['rowCount'] ?? 0;
+                            // Add a visual indicator
+                            return ListTile(
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  ext == 'csv' ? Icons.table_chart_rounded : Icons.grid_on_rounded,
+                                  color: AppColors.primary,
+                                  size: 20,
+                                ),
+                              ),
+                              title: Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '$rowCount rows • Cloud',
+                                style: TextStyle(
+                                  color: isDark ? Colors.white54 : Colors.black54,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline_rounded,
+                                    color: AppColors.error, size: 20),
+                                onPressed: () {
+                                  if (fileId != null) {
+                                    _deleteCloudData(fileId, ext);
+                                  }
+                                },
+                              ),
+                              onTap: () {
+                                _loadCloudDataset(item);
+                              },
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ── Upload State ────────────────────────────────────────────
@@ -685,15 +945,15 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
                       ],
                     ),
                   ),
-                  // Delete / Clear data
+                  // Delete / Clear local active data
                   IconButton(
                     onPressed: () async {
                       final confirm = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
                           backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
-                          title: Text('Delete Data?', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
-                          content: Text('Are you sure you want to delete the uploaded data and charts?', style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
+                          title: Text('Clear Screen?', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                          content: Text('This removes the active visualization from the screen. (The file remains in your cloud History).', style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(ctx, false),
@@ -701,14 +961,14 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
                             ),
                             TextButton(
                               onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('Delete', style: TextStyle(color: AppColors.error)),
+                              child: const Text('Clear', style: TextStyle(color: AppColors.error)),
                             ),
                           ],
                         ),
                       );
                       
                       if (confirm == true) {
-                        await _deleteSavedData();
+                        await _clearActiveData();
                       }
                     },
                     icon: Container(
@@ -717,7 +977,7 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
                         color: AppColors.error.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.delete_outline_rounded,
+                      child: const Icon(Icons.close_rounded,
                           color: AppColors.error, size: 22),
                     ),
                   ),

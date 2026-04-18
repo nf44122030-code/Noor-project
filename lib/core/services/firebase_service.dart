@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:math';
@@ -13,6 +14,7 @@ import '../utils/market_data_seeder.dart';
 class FirebaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   // --- Market Insights ---
   Future<List<Map<String, dynamic>>> getMarketInsights() async {
@@ -1102,5 +1104,74 @@ $marketDataContext
   Future<List<Map<String, dynamic>>> getFaqs() async {
     final snapshot = await _firestore.collection('faq').get();
     return snapshot.docs.map((doc) => doc.data()).toList();
+  }
+  // --- Analytics History ---
+  Future<void> uploadAnalyticsData(Uint8List bytes, String fileName, String ext, int rowCount) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+
+    final fileId = DateTime.now().millisecondsSinceEpoch.toString();
+    final storageRef = _storage.ref().child('users/${user.uid}/analytics/$fileId.$ext');
+
+    await storageRef.putData(bytes);
+    final downloadUrl = await storageRef.getDownloadURL();
+
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('analytics_history')
+        .doc(fileId)
+        .set({
+      'fileId': fileId,
+      'name': fileName,
+      'ext': ext,
+      'rowCount': rowCount,
+      'url': downloadUrl,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getAnalyticsHistory() async {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+
+    final snapshot = await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('analytics_history')
+        .orderBy('timestamp', descending: true)
+        .get();
+
+    return snapshot.docs.map((doc) => doc.data()).toList();
+  }
+
+  Future<void> deleteAnalyticsData(String fileId, String ext) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('analytics_history')
+        .doc(fileId)
+        .delete();
+
+    try {
+      final storageRef = _storage.ref().child('users/${user.uid}/analytics/$fileId.$ext');
+      await storageRef.delete();
+    } catch (e) {
+      debugPrint('Error deleting storage file (it might already be deleted): $e');
+    }
+  }
+
+  Future<Uint8List?> downloadAnalyticsData(String url) async {
+    try {
+      final storageRef = _storage.refFromURL(url);
+      final bytes = await storageRef.getData(10485760); // 10MB limit
+      return bytes;
+    } catch (e) {
+      debugPrint('Error downloading analytics data: $e');
+      return null;
+    }
   }
 }
