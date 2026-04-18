@@ -61,8 +61,14 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     try {
       final prefs = await SharedPreferences.getInstance();
       final historyStr = prefs.getString('analytics_local_history') ?? '[]';
-      final List<dynamic> jsonList = jsonDecode(historyStr);
-      final items = jsonList.map((e) => Map<String, dynamic>.from(e)).toList();
+      List<Map<String, dynamic>> items = [];
+      try {
+        final List<dynamic> jsonList = jsonDecode(historyStr);
+        items = jsonList.map((e) => Map<String, dynamic>.from(e)).toList();
+      } catch (e) {
+        debugPrint('Corrupted history string: $e, wiping clean.');
+        await prefs.setString('analytics_local_history', '[]');
+      }
       
       if (mounted) {
         setState(() {
@@ -152,8 +158,13 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
 
       final prefs = await SharedPreferences.getInstance();
       
-      final historyStr = prefs.getString('analytics_local_history') ?? '[]';
-      final historyList = List<Map<String,dynamic>>.from(jsonDecode(historyStr));
+      List<Map<String, dynamic>> historyList = [];
+      try {
+        final historyStr = prefs.getString('analytics_local_history') ?? '[]';
+        historyList = List<Map<String,dynamic>>.from(jsonDecode(historyStr));
+      } catch (e) {
+        historyList = [];
+      }
       
       historyList.insert(0, {
         'fileId': id,
@@ -175,8 +186,12 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     final prefs = await SharedPreferences.getInstance();
     
     // Remove from history tracking
-    final historyStr = prefs.getString('analytics_local_history') ?? '[]';
-    final historyList = List<Map<String,dynamic>>.from(jsonDecode(historyStr));
+    List<Map<String, dynamic>> historyList = [];
+    try {
+      final historyStr = prefs.getString('analytics_local_history') ?? '[]';
+      historyList = List<Map<String,dynamic>>.from(jsonDecode(historyStr));
+    } catch(e) { /* ignore */ }
+    
     historyList.removeWhere((item) => item['fileId'] == fileId);
     await prefs.setString('analytics_local_history', jsonEncode(historyList));
     
@@ -373,8 +388,11 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
 
   void _updateLocalRowCount() async {
     final prefs = await SharedPreferences.getInstance();
-    final historyStr = prefs.getString('analytics_local_history') ?? '[]';
-    final historyList = List<Map<String,dynamic>>.from(jsonDecode(historyStr));
+    List<Map<String, dynamic>> historyList = [];
+    try {
+      final historyStr = prefs.getString('analytics_local_history') ?? '[]';
+      historyList = List<Map<String,dynamic>>.from(jsonDecode(historyStr));
+    } catch(e) { return; }
     
     if (historyList.isNotEmpty && historyList.first['rowCount'] != _rowCount) {
       historyList.first['rowCount'] = _rowCount;
@@ -729,7 +747,7 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
                   : _historyItems.isEmpty
                       ? Center(
                           child: Text(
-                            'No past data analyses found in cloud.',
+                            'No past data analyses found in local history.',
                             style: TextStyle(
                               color: isDark ? Colors.white54 : Colors.black54,
                             ),
