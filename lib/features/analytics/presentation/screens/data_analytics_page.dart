@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:csv/csv.dart';
@@ -54,11 +55,15 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
     _loadSavedData();
   }
 
-  // ── Persistence & Cloud ─────────────────────────────────────
+  // ── Persistence & Local History ─────────────────────────────
   Future<void> _loadHistoryList() async {
     setState(() => _isLoadingHistory = true);
     try {
-      final items = await _firebaseService.getAnalyticsHistory();
+      final prefs = await SharedPreferences.getInstance();
+      final historyStr = prefs.getString('analytics_local_history') ?? '[]';
+      final List<dynamic> jsonList = jsonDecode(historyStr);
+      final items = jsonList.map((e) => Map<String, dynamic>.from(e)).toList();
+      
       if (mounted) {
         setState(() {
           _historyItems = items;
@@ -66,12 +71,12 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
         });
       }
     } catch (e) {
-      debugPrint('Error loading cloud history: $e');
+      debugPrint('Error loading local history: $e');
       if (mounted) setState(() => _isLoadingHistory = false);
     }
   }
 
-  Future<void> _loadCloudDataset(Map<String, dynamic> item) async {
+  Future<void> _loadDataset(Map<String, dynamic> item) async {
     setState(() {
       _historyOpen = false;
       _isLoading = true;
@@ -79,56 +84,58 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
       _fileName = item['name'];
     });
 
-    final url = item['url'];
+    final id = item['fileId'];
     final ext = item['ext'];
-    if (url == null || url.isEmpty) {
+    if (id == null || id.isEmpty) {
       setState(() => _isLoading = false);
       return;
     }
 
-    final bytes = await _firebaseService.downloadAnalyticsData(url);
-    if (bytes == null || bytes.isEmpty) {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/analytics_$id.$ext');
+      
+      if (!await file.exists()) {
+        throw Exception('File no longer exists on device.');
+      }
+      
+      final bytes = await file.readAsBytes();
+      
+      // Mark as current active screen
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('analytics_active_id', id);
+
+      if (ext == 'csv') {
+        _parseCsv(bytes);
+      } else {
+        _parseExcel(bytes);
+      }
+    } catch (e) {
+      debugPrint('Error loading dataset: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to download dataset.'), backgroundColor: Colors.redAccent),
+          const SnackBar(content: Text('Failed to load dataset.'), backgroundColor: Colors.redAccent),
         );
       }
       setState(() => _isLoading = false);
-      return;
-    }
-
-    await _saveDataLocally(bytes, ext, _fileName!);
-
-    if (ext == 'csv') {
-      _parseCsv(bytes);
-    } else {
-      _parseExcel(bytes);
     }
   }
+
   Future<void> _loadSavedData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedName = prefs.getString('analytics_file_name');
-      final savedExt = prefs.getString('analytics_file_ext');
-      
-      if (savedName != null && savedExt != null) {
-        setState(() {
-          _isLoading = true;
-          _fileName = savedName;
-        });
-        
-        final dir = await getApplicationDocumentsDirectory();
-        final file = File('${dir.path}/saved_analytics_data.$savedExt');
-        if (await file.exists()) {
-          final bytes = await file.readAsBytes();
-          if (savedExt == 'csv') {
-            _parseCsv(bytes);
-          } else {
-            _parseExcel(bytes);
-          }
-        } else {
-          setState(() => _isLoading = false);
-        }
+      final activeId = prefs.getString('analytics_active_id');
+      if (activeId == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      await _loadHistoryList();
+      final item = _historyItems.firstWhereOrNull((i) => i['fileId'] == activeId);
+      if (item != null) {
+        await _loadDataset(item);
+      } else {
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       debugPrint('Error loading saved data: $e');
@@ -138,45 +145,64 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
 
   Future<void> _saveDataLocally(Uint8List bytes, String ext, String name) async {
     try {
+      final id = DateTime.now().millisecondsSinceEpoch.toString();
       final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/saved_analytics_data.$ext');
+      final file = File('${dir.path}/analytics_$id.$ext');
       await file.writeAsBytes(bytes);
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('analytics_file_name', name);
-      await prefs.setString('analytics_file_ext', ext);
+      
+      final historyStr = prefs.getString('analytics_local_history') ?? '[]';
+      final historyList = List<Map<String,dynamic>>.from(jsonDecode(historyStr));
+      
+      historyList.insert(0, {
+        'fileId': id,
+        'name': name,
+        'ext': ext,
+        'rowCount': _rowCount,
+      });
+      
+      await prefs.setString('analytics_local_history', jsonEncode(historyList));
+      await prefs.setString('analytics_active_id', id);
+      
+      await _loadHistoryList();
     } catch (e) {
-      debugPrint('Error saving data: $e');
+      debugPrint('Error saving data locally: $e');
     }
   }
 
-  Future<void> _deleteCloudData(String fileId, String ext) async {
-    await _firebaseService.deleteAnalyticsData(fileId, ext);
+  Future<void> _deleteDataset(String fileId, String ext) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Remove from history tracking
+    final historyStr = prefs.getString('analytics_local_history') ?? '[]';
+    final historyList = List<Map<String,dynamic>>.from(jsonDecode(historyStr));
+    historyList.removeWhere((item) => item['fileId'] == fileId);
+    await prefs.setString('analytics_local_history', jsonEncode(historyList));
+    
+    // Delete actual file
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/analytics_$fileId.$ext');
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      debugPrint('Error deleting physical file: $e');
+    }
+
     await _loadHistoryList();
     
-    // If the active file is deleted, clear it locally too
-    final prefs = await SharedPreferences.getInstance();
-    final currentName = prefs.getString('analytics_file_name');
-    final item = _historyItems.firstWhereOrNull((i) => i['fileId'] == fileId);
-    if (currentName != null && item != null && currentName == item['name']) {
+    // If we're deleting what's currently on the screen, clear the screen
+    final activeId = prefs.getString('analytics_active_id');
+    if (activeId == fileId) {
        _clearActiveData();
     }
   }
 
   Future<void> _clearActiveData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final ext = prefs.getString('analytics_file_ext');
-      if (ext != null) {
-        final dir = await getApplicationDocumentsDirectory();
-        final file = File('${dir.path}/saved_analytics_data.$ext');
-        if (await file.exists()) await file.delete();
-      }
-      await prefs.remove('analytics_file_name');
-      await prefs.remove('analytics_file_ext');
-    } catch (e) {
-      debugPrint('Error deleting local saved data: $e');
-    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('analytics_active_id');
 
     setState(() {
       _charts.clear();
@@ -250,13 +276,6 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
         _fileName = file.name;
       });
 
-      // Try uploading to Firebase cloud in the background to not freeze UI immediately
-      _firebaseService.uploadAnalyticsData(bytes, file.name, ext, 0).then((_) {
-        _loadHistoryList();
-      }).catchError((e) {
-        debugPrint('Failed to sync purely to cloud: $e');
-      });
-
       await _saveDataLocally(bytes, ext, file.name);
 
       // Parse file
@@ -297,6 +316,7 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
       _headers = rows.first.map((e) => e.toString().trim()).toList();
       _rows = rows.skip(1).toList();
       _rowCount = _rows.length;
+      _updateLocalRowCount();
       _generateCharts();
     } catch (e) {
       debugPrint('CSV parse error: $e');
@@ -334,6 +354,7 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
           .map((r) => r.map((c) => c ?? '').toList())
           .toList();
       _rowCount = _rows.length;
+      _updateLocalRowCount();
       _generateCharts();
     } catch (e, stack) {
       debugPrint('Excel parse error: $e\n$stack');
@@ -347,6 +368,18 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
         );
       }
       setState(() => _isLoading = false);
+    }
+  }
+
+  void _updateLocalRowCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final historyStr = prefs.getString('analytics_local_history') ?? '[]';
+    final historyList = List<Map<String,dynamic>>.from(jsonDecode(historyStr));
+    
+    if (historyList.isNotEmpty && historyList.first['rowCount'] != _rowCount) {
+      historyList.first['rowCount'] = _rowCount;
+      await prefs.setString('analytics_local_history', jsonEncode(historyList));
+      _loadHistoryList();
     }
   }
 
@@ -736,7 +769,7 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
                                 ),
                               ),
                               subtitle: Text(
-                                '$rowCount rows • Cloud',
+                                '$rowCount rows • Local',
                                 style: TextStyle(
                                   color: isDark ? Colors.white54 : Colors.black54,
                                   fontSize: 12,
@@ -747,12 +780,12 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
                                     color: AppColors.error, size: 20),
                                 onPressed: () {
                                   if (fileId != null) {
-                                    _deleteCloudData(fileId, ext);
+                                    _deleteDataset(fileId, ext);
                                   }
                                 },
                               ),
                               onTap: () {
-                                _loadCloudDataset(item);
+                                _loadDataset(item);
                               },
                             );
                           },
