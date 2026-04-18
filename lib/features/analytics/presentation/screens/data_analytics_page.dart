@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:csv/csv.dart';
-import 'package:excel/excel.dart' as xl;
+import 'package:spreadsheet_decoder/spreadsheet_decoder.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:path_provider/path_provider.dart';
@@ -229,12 +229,12 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
 
   void _parseExcel(Uint8List bytes) {
     try {
-      final excel = xl.Excel.decodeBytes(bytes);
-      if (excel.tables.isEmpty) {
+      final decoder = SpreadsheetDecoder.decodeBytes(bytes);
+      if (decoder.tables.isEmpty) {
          throw Exception('The Excel file contains no data sheets.');
       }
       
-      final sheet = excel.tables[excel.tables.keys.first];
+      final sheet = decoder.tables[decoder.tables.keys.first];
       if (sheet == null) {
          throw Exception('Could not read the first sheet.');
       }
@@ -244,25 +244,12 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
         setState(() => _isLoading = false);
         return;
       }
-      
-      // Helper to extract primitive values from excel 4.x CellValue
-      dynamic extractValue(xl.Data? cell) {
-        if (cell == null || cell.value == null) return '';
-        final v = cell.value;
-        if (v is xl.TextCellValue) return v.value.text ?? '';
-        if (v is xl.IntCellValue) return v.value;
-        if (v is xl.DoubleCellValue) return v.value;
-        if (v is xl.BoolCellValue) return v.value;
-        if (v is xl.DateCellValue) return '${v.year}-${v.month}-${v.day}';
-        // Fallback for custom or unknown types
-        return v.toString();
-      }
 
       _headers =
-          allRows.first.map((c) => extractValue(c).toString().trim()).toList();
+          allRows.first.map((c) => c?.toString().trim() ?? '').toList();
       _rows = allRows
           .skip(1)
-          .map((r) => r.map((c) => extractValue(c)).toList())
+          .map((r) => r.map((c) => c ?? '').toList())
           .toList();
       _rowCount = _rows.length;
       _generateCharts();

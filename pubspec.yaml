@@ -40,10 +40,9 @@ dependencies:
   firebase_ai: ^3.10.0
   agora_rtc_engine: ^6.3.2
   file_picker: ^8.1.1
-  fl_chart: ^0.69.2
-  excel: ^4.0.3
   csv: ^6.0.0
   path_provider: ^2.1.2
+  spreadsheet_decoder: ^2.3.0
 
 dev_dependencies:
   flutter_test:
