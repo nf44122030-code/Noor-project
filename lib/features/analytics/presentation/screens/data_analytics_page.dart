@@ -149,8 +149,22 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
         return;
       }
 
-      final bytes = file.bytes;
+      Uint8List? bytes = file.bytes;
       if (bytes == null || bytes.isEmpty) {
+        if (file.path != null) {
+          bytes = await File(file.path!).readAsBytes();
+        }
+      }
+
+      if (bytes == null || bytes.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to read file data. The file might be corrupted or inaccessible.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
         setState(() => _isPicking = false);
         return;
       }
@@ -165,12 +179,23 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
 
       // Parse file
       if (ext == 'csv') {
+        // Use Future.delayed to allow showing the loading state before parsing blocks the main thread
+        await Future.delayed(const Duration(milliseconds: 100));
         _parseCsv(bytes);
       } else {
+        await Future.delayed(const Duration(milliseconds: 100));
         _parseExcel(bytes);
       }
     } catch (e) {
       debugPrint('File pick error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error uploading file: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
       setState(() {
         _isPicking = false;
         _isLoading = false;
@@ -193,6 +218,11 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
       _generateCharts();
     } catch (e) {
       debugPrint('CSV parse error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error parsing CSV: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
       setState(() => _isLoading = false);
     }
   }
@@ -216,6 +246,11 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
       _generateCharts();
     } catch (e) {
       debugPrint('Excel parse error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error parsing Excel: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
       setState(() => _isLoading = false);
     }
   }
