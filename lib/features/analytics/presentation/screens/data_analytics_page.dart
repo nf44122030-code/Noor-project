@@ -519,12 +519,6 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
         .toList();
   }
 
-  void _updateCloudRowCount(int count) {
-    // If we uploaded right before, it might take a second to appear in history. 
-    // We ideally save the rowCount silently if possible, but the simplest way is 
-    // it'll just stay 0 in cloud until next upload since Firebase ignores background sync failures here.
-  }
-
   // ── Chart Colors ────────────────────────────────────────────
   static const _chartColors = [
     Color(0xFF2563EB),
