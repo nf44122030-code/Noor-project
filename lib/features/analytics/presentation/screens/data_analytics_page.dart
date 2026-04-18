@@ -22,8 +22,11 @@ class DataAnalyticsPage extends StatefulWidget {
 }
 
 class _DataAnalyticsPageState extends State<DataAnalyticsPage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   final themeController = Get.find<ThemeController>();
+
+  @override
+  bool get wantKeepAlive => true;
 
   bool _isLoading = false;
   bool _isPicking = false;
@@ -536,6 +539,7 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
   // ══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Obx(() {
       final isDark = themeController.isDarkMode;
       final bg = isDark ? AppColors.bgDark : AppColors.bgLight;
@@ -563,6 +567,42 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
             ),
           ),
           centerTitle: true,
+          actions: [
+            if (_charts.isNotEmpty)
+              TextButton.icon(
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+                      title: Text('Start New?', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                      content: Text('This will clear the current screen. Your data is still safely saved in History.', style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Clear', style: TextStyle(color: AppColors.error)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    await _clearActiveData();
+                  }
+                },
+                icon: Icon(Icons.add_rounded, size: 20, color: isDark ? Colors.white70 : Colors.black87),
+                label: Text(
+                  'New',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+              ),
+          ],
         ),
         body: Stack(
           children: [
@@ -939,42 +979,8 @@ class _DataAnalyticsPageState extends State<DataAnalyticsPage>
                       ],
                     ),
                   ),
-                  // Delete / Clear local active data
-                  IconButton(
-                    onPressed: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
-                          title: Text('Clear Screen?', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
-                          content: Text('This removes the active visualization from the screen. (The file remains in your cloud History).', style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('Clear', style: TextStyle(color: AppColors.error)),
-                            ),
-                          ],
-                        ),
-                      );
-                      
-                      if (confirm == true) {
-                        await _clearActiveData();
-                      }
-                    },
-                    icon: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.close_rounded,
-                          color: AppColors.error, size: 22),
-                    ),
-                  ),
+                  // Start New Analysis is now in the AppBar!
+                  const SizedBox(),
                 ],
               ),
             ),
