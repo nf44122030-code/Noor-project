@@ -266,9 +266,15 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         // Enable transcript overlay for both sides
         if (mounted) setState(() => _isTranscribing = true);
 
+        // Auto-start recording and AI Note timers so we don't miss the conversation
+        if (!notesController.isRecording.value) {
+          notesController.startRecording();
+          _startAutoNoteTimer();
+        }
+
         setState(() {
           _aiChatMessages.add({
-            'message': '👋 Hi! I\'m your Intellix Assistant. I can help take notes or answer questions while you talk to $_expertName.',
+            'message': '👋 Hi! I\'m your Intellix Assistant. I am automatically listening and taking notes while you talk to $_expertName.',
             'timestamp': _formatTime(0),
             'isAI': true,
           });
@@ -432,7 +438,14 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         );
         if (mounted) context.go('/session-notes/${savedSession.id}');
       } else if (mounted) {
-        context.pop();
+        // Fallback: If no real conversation was had, still create a basic log
+         final savedSession = await notesController.saveSession(
+          expertName: _expertName,
+          expertTitle: _expertTitle,
+          duration: _sessionTime,
+          aiContent: "No discussion notes generated. The session ended quickly or no words were spoken.",
+        );
+        if (mounted) context.go('/session-notes/${savedSession.id}');
       }
     } catch (e) {
       if (mounted) context.pop();
@@ -460,7 +473,14 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         );
         if (mounted) context.go('/session-notes/${savedSession.id}');
       } else if (mounted) {
-        context.pop();
+        // Fallback: If no real conversation was had, still create a basic log
+         final savedSession = await notesController.saveSession(
+          expertName: _expertName,
+          expertTitle: _expertTitle,
+          duration: _sessionTime,
+          aiContent: "No discussion notes generated. The session was ended before significant conversation occurred.",
+        );
+        if (mounted) context.go('/session-notes/${savedSession.id}');
       }
     } catch (e) {
       if (mounted) context.pop();
