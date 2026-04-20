@@ -407,6 +407,13 @@ class AgoraService {
       2. Action items for the user.
       3. Strategic recommendations based on the conversation.
 
+      **CRITICAL FORMATTING INSTRUCTIONS:**
+      - Provide ONLY the raw requested notes.
+      - DO NOT use quotation marks around your entire response.
+      - DO NOT include conversational fluff like "Here are the notes" or "This report aims to provide...".
+      - DO NOT include closing remarks like "If you need anything else, let me know!".
+      - Output professional, highly formatted Markdown only.
+
       TRANSCRIPT:
       $transcript
     ''';

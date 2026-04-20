@@ -48,7 +48,7 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
       if (mounted) {
         Get.snackbar(
           'Booking Confirmed ✅', 
-          'Session code: $sessionCode. Email notification sent to patient.',
+          'Session code: $sessionCode. Email notification sent to client.',
           backgroundColor: Colors.green.shade800,
           colorText: Colors.white,
           duration: const Duration(seconds: 4),
@@ -122,6 +122,41 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
     }
   }
 
+  Future<void> _handleDelete(Map<String, dynamic> booking) async {
+    final bookingId = booking['id'];
+    
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Session'),
+        content: const Text('Are you sure you want to permanently delete this session? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _processingBookings.add(bookingId));
+    try {
+      await FirebaseService().deleteBooking(bookingId);
+      if (mounted) {
+        Get.snackbar('Deleted', 'Session was deleted.',
+            backgroundColor: Colors.grey.shade800, colorText: Colors.white);
+      }
+    } catch (e) {
+      if (mounted) Get.snackbar('Error', 'Failed to delete session.');
+    } finally {
+      if (mounted) setState(() => _processingBookings.remove(bookingId));
+    }
+  }
+
   Future<String?> _showReasonDialog(String title, String label, String placeholder) {
     final controller = TextEditingController();
     return showDialog<String>(
@@ -141,6 +176,146 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
             child: const Text('Confirm'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showScheduleManager(Map<String, dynamic> expertProfile, AuthController authController) {
+    final theme = Get.find<ThemeController>();
+    final isDark = theme.isDarkMode;
+    
+    // Parse existing schedule
+    final Map<String, TextEditingController> dayControllers = {
+      'Monday': TextEditingController(),
+      'Tuesday': TextEditingController(),
+      'Wednesday': TextEditingController(),
+      'Thursday': TextEditingController(),
+      'Friday': TextEditingController(),
+      'Saturday': TextEditingController(),
+      'Sunday': TextEditingController(),
+    };
+
+    final rawSchedule = expertProfile['schedule'];
+    if (rawSchedule is List) {
+      for (var s in rawSchedule) {
+        if (s is Map) {
+          final day = s['day']?.toString();
+          if (day != null && dayControllers.containsKey(day)) {
+            final slots = s['slots'];
+            if (slots is List) {
+              dayControllers[day]!.text = slots.map((e) => e.toString()).join(', ');
+            }
+          }
+        }
+      }
+    }
+
+    bool isSavingLocal = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 24, right: 24, top: 24,
+            ),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.8,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Manage Schedule', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+                      IconButton(icon: Icon(Icons.close, color: isDark ? Colors.white54 : Colors.black54), onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Enter available time slots separated by commas (e.g. 09:00, 10:30, 14:00). Leave blank if unavailable.', 
+                    style: GoogleFonts.inter(fontSize: 13, color: isDark ? Colors.white54 : Colors.black54)),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: ListView(
+                      children: dayControllers.entries.map((entry) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: TextField(
+                            controller: entry.value,
+                            style: GoogleFonts.inter(color: isDark ? Colors.white : Colors.black, fontSize: 14),
+                            decoration: InputDecoration(
+                              labelText: entry.key,
+                              labelStyle: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                              hintText: 'e.g. 09:00, 10:00',
+                              filled: true,
+                              fillColor: isDark ? Colors.black12 : Colors.grey.shade100,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: isSavingLocal ? null : () async {
+                        setModalState(() => isSavingLocal = true);
+                        try {
+                          List<Map<String, dynamic>> newSchedule = [];
+                          for (var entry in dayControllers.entries) {
+                            final slotsRaw = entry.value.text.trim();
+                            if (slotsRaw.isNotEmpty) {
+                              final slots = slotsRaw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+                              if (slots.isNotEmpty) {
+                                newSchedule.add({'day': entry.key, 'slots': slots});
+                              }
+                            }
+                          }
+
+                          final expertId = expertProfile['id'] ?? expertProfile['email'];
+                          if (expertId == null) throw Exception("Expert ID is missing");
+                          
+                          await FirebaseService().updateExpertProfileData(expertId, {'schedule': newSchedule});
+                          
+                          // Update active local state so UI doesn't require reload
+                          final updatedProfile = Map<String, dynamic>.from(expertProfile);
+                          updatedProfile['schedule'] = newSchedule;
+                          authController.expertProfile.value = updatedProfile;
+
+                          if (mounted) {
+                            Navigator.pop(ctx);
+                            Get.snackbar('Success', 'Availability schedule updated', 
+                              backgroundColor: Colors.green.shade800, colorText: Colors.white);
+                          }
+                        } catch (e) {
+                          if (mounted) Get.snackbar('Error', 'Failed to update schedule.');
+                        } finally {
+                          setModalState(() => isSavingLocal = false);
+                        }
+                      },
+                      child: isSavingLocal 
+                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : Text('Save Schedule', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white)),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -169,6 +344,12 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
             ),
           ),
           actions: [
+            IconButton(
+              icon: Icon(Icons.edit_calendar_rounded,
+                  color: isDark ? Colors.white70 : Colors.black54),
+              tooltip: 'Manage Schedule',
+              onPressed: () => _showScheduleManager(expertProfile, authController),
+            ),
             IconButton(
               icon: Icon(Icons.logout,
                   color: isDark ? Colors.white70 : Colors.black54),
@@ -257,12 +438,16 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
                   // Filter out ringing calls to display them prominently at the top
                   final ringingCall = bookings.firstWhereOrNull((b) => b['call_status'] == 'ringing');
                   
+                  final activeStatuses = ['pending', 'confirmed'];
+                  final upcomingBookings = bookings.where((b) => b['id'] != ringingCall?['id'] && activeStatuses.contains(b['status'])).toList();
+                  final pastBookings = bookings.where((b) => b['id'] != ringingCall?['id'] && !activeStatuses.contains(b['status'])).toList();
+
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (ringingCall != null) _buildIncomingCallCard(ringingCall, isDark),
                       
-                      if (bookings.isEmpty)
+                      if (upcomingBookings.isEmpty && ringingCall == null)
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(24),
@@ -301,7 +486,21 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
                           ),
                         )
                       else
-                        ...bookings.map((booking) => _buildBookingCard(booking, isDark)),
+                        ...upcomingBookings.map((booking) => _buildBookingCard(booking, isDark, false)),
+                        
+                      if (pastBookings.isNotEmpty) ...[
+                        const SizedBox(height: 32),
+                        Text(
+                          'Past Sessions',
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ...pastBookings.map((booking) => _buildBookingCard(booking, isDark, true)),
+                      ]
                     ],
                   );
                 },
@@ -352,7 +551,7 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
     );
   }
 
-  Widget _buildBookingCard(Map<String, dynamic> booking, bool isDark) {
+  Widget _buildBookingCard(Map<String, dynamic> booking, bool isDark, bool isPast) {
     final status = booking['status'] as String? ?? 'pending';
     final isPending = status == 'pending';
     final isConfirmed = status == 'confirmed';
@@ -509,7 +708,7 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
                   Text(sessionCode,
                     style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 4, color: AppColors.primary)),
                   const SizedBox(height: 12),
-                  Text('An email with this code has been sent to the patient.',
+                  Text('An email with this code has been sent to the client.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(fontSize: 12, color: Colors.green.shade600, fontWeight: FontWeight.w500)),
                 ],
@@ -525,6 +724,22 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.orange),
                   padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+          if (isPast) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: isProcessing ? null : () => _handleDelete(booking),
+                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                label: Text('Delete Record', style: GoogleFonts.inter(color: Colors.redAccent, fontWeight: FontWeight.w600)),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),

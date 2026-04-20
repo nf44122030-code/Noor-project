@@ -244,6 +244,11 @@ class FirebaseService {
     });
   }
 
+  /// Permanently deletes a booking record from the database.
+  Future<void> deleteBooking(String bookingId) async {
+    await _firestore.collection('bookings').doc(bookingId).delete();
+  }
+
   // ── Video Call Signaling ────────────────────────────────────────────────────────
 
   /// Updates the booking to alert the expert that the user is waiting/ringing.
