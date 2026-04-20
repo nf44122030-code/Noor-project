@@ -13,6 +13,7 @@ import '../../../../core/theme/theme_controller.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/notes_controller.dart';
 import '../widgets/camera_permission_dialog.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class VideoSessionPage extends StatefulWidget {
   final String? expertName;
@@ -61,6 +62,16 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   
   final _aiChatController = TextEditingController();
   bool _isAiResponding = false;
+
+  // ── Live AI Listening ──────────────────────────────────────
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechAvailable = false;
+  bool _isListening = false;
+  final List<String> _pendingPhrases = []; // phrases queued for AI note generation
+  Timer? _autoNoteTimer;
+  bool _isAutoGenerating = false;
+  static const int _phrasesPerAutoNote = 4;   // generate note every N phrases
+  static const int _autoNoteIntervalSec = 45; // or every 45 s if fewer phrases
 
   @override
   void initState() {
@@ -146,6 +157,8 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
       node.dispose();
     }
     _timer?.cancel();
+    _autoNoteTimer?.cancel();
+    _speech.stop();
     _pulseController.dispose();
     _aiChatController.dispose();
     AgoraService.dispose();
@@ -235,6 +248,9 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         });
         _startTimer();
 
+        // 3. Initialise on-device speech recognition so it's ready when notes start
+        await _initSpeech();
+
         // 3. Start Agora Real-Time STT cloud agent.
         // Only the CLIENT side starts the agent to avoid a 409 Conflict when both
         // participants try to create an agent for the same channel simultaneously.
@@ -283,6 +299,116 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     });
   }
 
+  // ── Live AI Listening implementation ──────────────────────
+
+  /// Initialise on-device speech recognition and begin listening.
+  Future<void> _initSpeech() async {
+    try {
+      _speechAvailable = await _speech.initialize(
+        onError: (e) => debugPrint('STT error: ${e.errorMsg}'),
+        onStatus: (s) {
+          debugPrint('STT status: $s');
+          // Restart automatically when the engine stops between utterances
+          if (s == stt.SpeechToText.listeningStatus) {
+            if (mounted) setState(() => _isListening = true);
+          } else {
+            if (mounted) setState(() => _isListening = false);
+            // Keep listening unless the widget is gone or recording was stopped
+            if (mounted && notesController.isRecording.value) {
+              Future.delayed(const Duration(milliseconds: 300), _startContinuousListening);
+            }
+          }
+        },
+      );
+      debugPrint('speech_to_text available: $_speechAvailable');
+    } catch (e) {
+      debugPrint('speech_to_text init error: $e');
+    }
+  }
+
+  /// Begin a single listen session (auto-restarts via onStatus callback).
+  void _startContinuousListening() {
+    if (!_speechAvailable || !mounted || _speech.isListening) return;
+    _speech.listen(
+      onResult: (result) {
+        if (result.finalResult && result.recognizedWords.trim().isNotEmpty) {
+          _onSpeechResult(result.recognizedWords.trim());
+        }
+      },
+      listenFor: const Duration(seconds: 30),
+      pauseFor: const Duration(seconds: 4),
+      partialResults: false,
+      cancelOnError: false,
+    );
+  }
+
+  /// Called for every finalised phrase from the microphone.
+  void _onSpeechResult(String text) {
+    debugPrint('🎙️ Heard: $text');
+    // 1. Store in Agora's transcript buffer (used for end-of-session notes)
+    AgoraService.addTranscriptSnippet(text);
+    // 2. Show on the live transcript overlay
+    if (mounted) {
+      setState(() {
+        _transcriptLines.add('[${_formatTime(_sessionTime)}] $text');
+        if (_transcriptLines.length > 50) _transcriptLines.removeAt(0);
+        _isTranscribing = true;
+      });
+    }
+    // 3. Queue for auto AI note generation
+    if (notesController.isRecording.value) {
+      _pendingPhrases.add(text);
+      if (_pendingPhrases.length >= _phrasesPerAutoNote) {
+        _autoGenerateNote();
+      }
+    }
+  }
+
+  /// Send queued phrases to Gemini and add the result as a live note.
+  Future<void> _autoGenerateNote() async {
+    if (_pendingPhrases.isEmpty || _isAutoGenerating || !notesController.isRecording.value) return;
+    _isAutoGenerating = true;
+    final phrases = List<String>.from(_pendingPhrases);
+    _pendingPhrases.clear();
+
+    try {
+      final excerpt = phrases.join(' ');
+      final prompt =
+          'You are the Intellix AI Meeting Assistant listening live to a consultation '
+          'between a user and $_expertName ($_expertTitle).\n'
+          'Based on the following spoken excerpt, extract 1-2 concise key insights, '
+          'action items, or important points. Use short bullet points.\n\n'
+          'EXCERPT:\n"$excerpt"';
+
+      final note = await VertexAiService.getMultimodalCompletion(
+        [{'role': 'user', 'content': prompt}],
+      );
+      if (note != null && mounted) {
+        notesController.addGeneratedNote(note);
+      }
+    } catch (e) {
+      debugPrint('Auto note generation error: $e');
+      // Put phrases back so they're not lost
+      _pendingPhrases.insertAll(0, phrases);
+    } finally {
+      _isAutoGenerating = false;
+    }
+  }
+
+  /// Starts the periodic fallback timer (fires every 45 s if < _phrasesPerAutoNote).
+  void _startAutoNoteTimer() {
+    _autoNoteTimer?.cancel();
+    _autoNoteTimer = Timer.periodic(
+      const Duration(seconds: _autoNoteIntervalSec),
+      (_) => _autoGenerateNote(),
+    );
+  }
+
+  void _stopAutoNoteTimer() {
+    _autoNoteTimer?.cancel();
+    _autoNoteTimer = null;
+  }
+
   Future<void> _sendAiMessage() async {
     final text = _aiChatController.text.trim();
     if (text.isEmpty || _isAiResponding) return;
@@ -327,14 +453,22 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     if (!isRecording) {
       notesController.startRecording();
       setState(() => _showNotes = true);
+      // Start live listening and the periodic fallback timer
+      _startContinuousListening();
+      _startAutoNoteTimer();
     } else {
       notesController.stopRecording();
       setState(() => _showNotes = false);
+      _speech.stop();
+      _stopAutoNoteTimer();
     }
   }
 
   Future<void> _endSession() async {
-    setState(() => _sessionState = 'connecting'); // Show loading screen 
+    setState(() => _sessionState = 'connecting');
+    // Stop listening before leaving
+    _speech.stop();
+    _stopAutoNoteTimer();
     try {
       // 1. Instantly stop broadcast and leave channel so user has privacy
       await AgoraService.leaveChannel();
@@ -348,7 +482,11 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         }
       }
 
-      // 3. Generate final AI notes if any discussion happened
+      // 3. Flush any remaining phrases into the transcript buffer
+      if (_pendingPhrases.isNotEmpty) {
+        AgoraService.addTranscriptSnippet(_pendingPhrases.join(' '));
+        _pendingPhrases.clear();
+      }
       AgoraService.addTranscriptSnippet('Session ended after ${_formatTime(_sessionTime)} with $_expertName.');
       final aiNotes = await AgoraService.generateSessionNotes();
       
@@ -369,10 +507,15 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   }
 
   Future<void> _forceEndSessionFromRemote() async {
-    setState(() => _sessionState = 'connecting'); 
+    setState(() => _sessionState = 'connecting');
+    _speech.stop();
+    _stopAutoNoteTimer();
     try {
       await AgoraService.leaveChannel();
-      
+      if (_pendingPhrases.isNotEmpty) {
+        AgoraService.addTranscriptSnippet(_pendingPhrases.join(' '));
+        _pendingPhrases.clear();
+      }
       AgoraService.addTranscriptSnippet('Session was ended by the other participant.');
       final aiNotes = await AgoraService.generateSessionNotes();
       
@@ -836,7 +979,52 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
           Container(
             padding: const EdgeInsets.all(16),
             decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFFFA726), Color(0xFFFFB74D)])),
-            child: Row(children: [const Icon(Icons.auto_awesome, color: Colors.white, size: 24), const SizedBox(width: 12), const Expanded(child: Text('AI Session Notes', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))), IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => setState(() => _showNotes = false))]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
+                  const SizedBox(width: 12),
+                  const Expanded(child: Text('AI Session Notes', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
+                  IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => setState(() => _showNotes = false)),
+                ]),
+                // Live listening status badge
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: _isListening
+                      ? Container(
+                          key: const ValueKey('listening'),
+                          margin: const EdgeInsets.only(top: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Container(width: 7, height: 7, decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle)),
+                            const SizedBox(width: 6),
+                            const Text('Listening…', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                          ]),
+                        )
+                      : _speechAvailable
+                          ? Container(
+                              key: const ValueKey('ready'),
+                              margin: const EdgeInsets.only(top: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Container(width: 7, height: 7, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.6), shape: BoxShape.circle)),
+                                const SizedBox(width: 6),
+                                Text('Mic ready · speaks auto-noted', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
+                              ]),
+                            )
+                          : const SizedBox.shrink(key: ValueKey('unavailable')),
+                ),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(16),
