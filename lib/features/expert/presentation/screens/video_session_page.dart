@@ -13,7 +13,6 @@ import '../../../../core/theme/theme_controller.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/notes_controller.dart';
 import '../widgets/camera_permission_dialog.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class VideoSessionPage extends StatefulWidget {
   final String? expertName;
@@ -63,10 +62,8 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   final _aiChatController = TextEditingController();
   bool _isAiResponding = false;
 
-  // ── Live AI Listening ──────────────────────────────────────
-  final stt.SpeechToText _speech = stt.SpeechToText();
-  bool _speechAvailable = false;
-  bool _isListening = false;
+  // ── Live AI Notes (powered by Agora Cloud STT) ─────────────
+  String _partialText = '';  // current partial (typing) text from Agora STT
   final List<String> _pendingPhrases = []; // phrases queued for AI note generation
   Timer? _autoNoteTimer;
   bool _isAutoGenerating = false;
@@ -101,10 +98,19 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
       if (mounted) {
         setState(() {
           _transcriptLines.add('[${_formatTime(_sessionTime)}] $text');
-          // Keep max 50 lines
           if (_transcriptLines.length > 50) _transcriptLines.removeAt(0);
         });
+        // Queue for auto AI note generation when notes recording is active
+        if (notesController.isRecording.value) {
+          _pendingPhrases.add(text);
+          if (_pendingPhrases.length >= _phrasesPerAutoNote) {
+            _autoGenerateNote();
+          }
+        }
       }
+    };
+    AgoraService.onPartialTranscript = (text) {
+      if (mounted) setState(() => _partialText = text);
     };
     
     // If an initialCode is provided (e.g. expert answered a call from dashboard),
@@ -158,7 +164,6 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     }
     _timer?.cancel();
     _autoNoteTimer?.cancel();
-    _speech.stop();
     _pulseController.dispose();
     _aiChatController.dispose();
     AgoraService.dispose();
@@ -248,21 +253,18 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         });
         _startTimer();
 
-        // 3. Initialise on-device speech recognition so it's ready when notes start
-        await _initSpeech();
-
         // 3. Start Agora Real-Time STT cloud agent.
-        // Only the CLIENT side starts the agent to avoid a 409 Conflict when both
-        // participants try to create an agent for the same channel simultaneously.
-        // The expert side will still receive transcriptions via stream messages.
+        // Only the CLIENT starts the agent to avoid a 409 Conflict,
+        // but BOTH sides see the transcript via onStreamMessage.
         if (isClient) {
           try {
             await AgoraService.startSttAgent(channelId);
-            if (mounted) setState(() => _isTranscribing = true);
           } catch (e) {
             debugPrint('STT agent start failed: $e');
           }
         }
+        // Enable transcript overlay for both sides
+        if (mounted) setState(() => _isTranscribing = true);
 
         setState(() {
           _aiChatMessages.add({
@@ -299,72 +301,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     });
   }
 
-  // ── Live AI Listening implementation ──────────────────────
-
-  /// Initialise on-device speech recognition and begin listening.
-  Future<void> _initSpeech() async {
-    try {
-      _speechAvailable = await _speech.initialize(
-        onError: (e) => debugPrint('STT error: ${e.errorMsg}'),
-        onStatus: (s) {
-          debugPrint('STT status: $s');
-          // Restart automatically when the engine stops between utterances
-          if (s == stt.SpeechToText.listeningStatus) {
-            if (mounted) setState(() => _isListening = true);
-          } else {
-            if (mounted) setState(() => _isListening = false);
-            // Keep listening unless the widget is gone or recording was stopped
-            if (mounted && notesController.isRecording.value) {
-              Future.delayed(const Duration(milliseconds: 300), _startContinuousListening);
-            }
-          }
-        },
-      );
-      debugPrint('speech_to_text available: $_speechAvailable');
-    } catch (e) {
-      debugPrint('speech_to_text init error: $e');
-    }
-  }
-
-  /// Begin a single listen session (auto-restarts via onStatus callback).
-  void _startContinuousListening() {
-    if (!_speechAvailable || !mounted || _speech.isListening) return;
-    _speech.listen(
-      onResult: (result) {
-        if (result.finalResult && result.recognizedWords.trim().isNotEmpty) {
-          _onSpeechResult(result.recognizedWords.trim());
-        }
-      },
-      listenFor: const Duration(seconds: 30),
-      pauseFor: const Duration(seconds: 4),
-      listenOptions: stt.SpeechListenOptions(
-        partialResults: false,
-        cancelOnError: false,
-      ),
-    );
-  }
-
-  /// Called for every finalised phrase from the microphone.
-  void _onSpeechResult(String text) {
-    debugPrint('🎙️ Heard: $text');
-    // 1. Store in Agora's transcript buffer (used for end-of-session notes)
-    AgoraService.addTranscriptSnippet(text);
-    // 2. Show on the live transcript overlay
-    if (mounted) {
-      setState(() {
-        _transcriptLines.add('[${_formatTime(_sessionTime)}] $text');
-        if (_transcriptLines.length > 50) _transcriptLines.removeAt(0);
-        _isTranscribing = true;
-      });
-    }
-    // 3. Queue for auto AI note generation
-    if (notesController.isRecording.value) {
-      _pendingPhrases.add(text);
-      if (_pendingPhrases.length >= _phrasesPerAutoNote) {
-        _autoGenerateNote();
-      }
-    }
-  }
+  // ── Auto AI Notes (powered by Agora Cloud STT) ───────────
 
   /// Send queued phrases to Gemini and add the result as a live note.
   Future<void> _autoGenerateNote() async {
@@ -390,7 +327,6 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
       }
     } catch (e) {
       debugPrint('Auto note generation error: $e');
-      // Put phrases back so they're not lost
       _pendingPhrases.insertAll(0, phrases);
     } finally {
       _isAutoGenerating = false;
@@ -455,21 +391,16 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
     if (!isRecording) {
       notesController.startRecording();
       setState(() => _showNotes = true);
-      // Start live listening and the periodic fallback timer
-      _startContinuousListening();
       _startAutoNoteTimer();
     } else {
       notesController.stopRecording();
       setState(() => _showNotes = false);
-      _speech.stop();
       _stopAutoNoteTimer();
     }
   }
 
   Future<void> _endSession() async {
     setState(() => _sessionState = 'connecting');
-    // Stop listening before leaving
-    _speech.stop();
     _stopAutoNoteTimer();
     try {
       // 1. Instantly stop broadcast and leave channel so user has privacy
@@ -510,7 +441,6 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
 
   Future<void> _forceEndSessionFromRemote() async {
     setState(() => _sessionState = 'connecting');
-    _speech.stop();
     _stopAutoNoteTimer();
     try {
       await AgoraService.leaveChannel();
@@ -812,7 +742,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                         Positioned(
                           bottom: 8, left: 8, right: 8,
                           child: Container(
-                            constraints: const BoxConstraints(maxHeight: 120),
+                            constraints: const BoxConstraints(maxHeight: 150),
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.7),
@@ -838,10 +768,38 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                                   ],
                                 ),
                                 const SizedBox(height: 6),
+                                // ── Partial (typing) text with blinking cursor ──
+                                if (_partialText.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            _partialText,
+                                            style: TextStyle(color: Colors.cyanAccent.withValues(alpha: 0.85), fontSize: 13, fontStyle: FontStyle.italic),
+                                          ),
+                                        ),
+                                        // Blinking cursor
+                                        AnimatedBuilder(
+                                          animation: _pulseController,
+                                          builder: (_, __) => Opacity(
+                                            opacity: _pulseController.value > 0.5 ? 1.0 : 0.0,
+                                            child: Container(
+                                              width: 2, height: 14,
+                                              margin: const EdgeInsets.only(left: 2, bottom: 1),
+                                              color: Colors.cyanAccent,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 Flexible(
-                                  child: _transcriptLines.isEmpty
+                                  child: _transcriptLines.isEmpty && _partialText.isEmpty
                                     ? Text(
-                                        'Listening... speak to start transcribing',
+                                        'Listening… speak to start transcribing',
                                         style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12, fontStyle: FontStyle.italic),
                                       )
                                     : ListView.builder(
@@ -990,12 +948,12 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                   const Expanded(child: Text('AI Session Notes', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
                   IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => setState(() => _showNotes = false)),
                 ]),
-                // Live listening status badge
+                // Live transcript status badge
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
-                  child: _isListening
+                  child: _isTranscribing
                       ? Container(
-                          key: const ValueKey('listening'),
+                          key: const ValueKey('transcribing'),
                           margin: const EdgeInsets.only(top: 6),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
@@ -1005,25 +963,23 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             Container(width: 7, height: 7, decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle)),
                             const SizedBox(width: 6),
-                            const Text('Listening…', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                            const Text('Cloud STT Active · auto-noting', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
                           ]),
                         )
-                      : _speechAvailable
-                          ? Container(
-                              key: const ValueKey('ready'),
-                              margin: const EdgeInsets.only(top: 6),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                Container(width: 7, height: 7, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.6), shape: BoxShape.circle)),
-                                const SizedBox(width: 6),
-                                Text('Mic ready · speaks auto-noted', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
-                              ]),
-                            )
-                          : const SizedBox.shrink(key: ValueKey('unavailable')),
+                      : Container(
+                          key: const ValueKey('waiting'),
+                          margin: const EdgeInsets.only(top: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Container(width: 7, height: 7, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.6), shape: BoxShape.circle)),
+                            const SizedBox(width: 6),
+                            Text('Waiting for transcript…', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
+                          ]),
+                        ),
                 ),
               ],
             ),

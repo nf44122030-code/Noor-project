@@ -16,7 +16,8 @@ class AgoraService {
   static Function(int)? onRemoteUserJoined;
   static Function(int)? onRemoteUserOffline;
   static Function(String)? onAgoraError;
-  static Function(String)? onTranscriptUpdate;
+  static Function(String)? onTranscriptUpdate;       // final transcript line
+  static Function(String)? onPartialTranscript;      // live partial (typing) text
 
   static Future<void> initialize() async {
     if (_engine != null) return;
@@ -149,6 +150,7 @@ class AgoraService {
     onRemoteUserJoined = null;
     onRemoteUserOffline = null;
     onTranscriptUpdate = null;
+    onPartialTranscript = null;
   }
 
   // ─── Agora Real-Time STT (Cloud Service) ──────────────────
@@ -220,6 +222,11 @@ class AgoraService {
           _transcriptBuffer.add(entry);
           debugPrint('STT Final: $entry');
           if (onTranscriptUpdate != null) onTranscriptUpdate!(text);
+          // Clear the partial line after final
+          if (onPartialTranscript != null) onPartialTranscript!('');
+        } else {
+          // Emit partial result for real-time typing effect
+          if (onPartialTranscript != null) onPartialTranscript!(text);
         }
       }
     } catch (e) {
