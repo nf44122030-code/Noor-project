@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
@@ -12,6 +13,10 @@ class AgoraService {
   static RtcEngine? _engine;
   static final List<String> _transcriptBuffer = [];
   static String? _sttAgentId;
+  
+  static Timer? _sttDebounceTimer;
+  static String _lastPartialText = "";
+  static int _lastUid = 0;
   
   static Function(int)? onRemoteUserJoined;
   static Function(int)? onRemoteUserOffline;
@@ -190,6 +195,7 @@ class AgoraService {
   static Future<void> stopSttAgent() async {
     if (_sttAgentId == null) return;
     try {
+      _sttDebounceTimer?.cancel();
       final url = Uri.parse('https://noor-project-nine.vercel.app/api/agora/stt');
       await http.post(
         url,
@@ -216,18 +222,32 @@ class AgoraService {
         final isFinal = result['isFinal'] as bool;
         final uid = result['uid'] as int;
 
-        if (isFinal) {
-          // Determine speaker label
-          final speaker = uid == 0 ? 'You' : 'Speaker $uid';
-          final entry = '[$speaker]: $text';
+        void finalizeText(String finalText, int speakerUid) {
+          final speaker = speakerUid == 0 ? 'You' : 'Speaker $speakerUid';
+          final entry = '[$speaker]: $finalText';
           _transcriptBuffer.add(entry);
           debugPrint('STT Final: $entry');
-          if (onTranscriptUpdate != null) onTranscriptUpdate!(text);
-          // Clear the partial line after final
+          if (onTranscriptUpdate != null) onTranscriptUpdate!(finalText);
           if (onPartialTranscript != null) onPartialTranscript!('');
+          _lastPartialText = "";
+        }
+
+        if (isFinal) {
+          _sttDebounceTimer?.cancel();
+          finalizeText(text, uid);
         } else {
           // Emit partial result for real-time typing effect
+          _lastPartialText = text;
+          _lastUid = uid;
           if (onPartialTranscript != null) onPartialTranscript!(text);
+          
+          // Restart debounce timer to auto-finalize if STT simply stops
+          _sttDebounceTimer?.cancel();
+          _sttDebounceTimer = Timer(const Duration(seconds: 2), () {
+            if (_lastPartialText.isNotEmpty) {
+              finalizeText(_lastPartialText, _lastUid);
+            }
+          });
         }
       }
     } catch (e) {
