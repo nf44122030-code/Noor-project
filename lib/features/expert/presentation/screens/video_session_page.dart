@@ -337,8 +337,10 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
       },
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 4),
-      partialResults: false,
-      cancelOnError: false,
+      listenOptions: stt.SpeechListenOptions(
+        partialResults: false,
+        cancelOnError: false,
+      ),
     );
   }
 
