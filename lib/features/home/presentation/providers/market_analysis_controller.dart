@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import '../../../../core/services/firebase_service.dart';
 import '../../data/models/market_insight.dart';
+import '../../../../core/utils/market_data_seeder.dart';
 
 class MarketAnalysisController extends GetxController {
   final FirebaseService _firebaseService = FirebaseService();
@@ -25,6 +26,9 @@ class MarketAnalysisController extends GetxController {
   Future<void> fetchInsights() async {
     isLoading.value = true;
     try {
+      // Temporary auto-reseeding trigger
+      await MarketDataSeeder.seedIraqiMarketData();
+      
       final rawData = await _firebaseService.getMarketInsights();
       allInsights.value = rawData.map((e) => MarketInsight.fromJson(e)).toList();
       

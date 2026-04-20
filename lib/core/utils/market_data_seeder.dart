@@ -155,16 +155,16 @@ class MarketDataSeeder {
         double startupCost = category.baseStartupCost * area.costMultiplier;
         double opCost = category.baseOperationalCost * area.costMultiplier;
         
-        // Success is influenced positively by traffic and negatively by prohibitive costs
-        int successRaw = (category.baseSuccessProb * area.trafficMultiplier / (area.costMultiplier * 0.8)).round();
-        int finalSuccess = min(98, max(30, successRaw)); // clamp between 30 and 98
+        // Success is influenced positively by traffic and negatively by prohibitive costs, but less punishing
+        int successRaw = (category.baseSuccessProb * area.trafficMultiplier / max(1.0, area.costMultiplier * 0.5)).round();
+        int finalSuccess = min(98, max(15, successRaw)); // clamp between 15 and 98 to allow variance
 
         // Competition is inherently based on the area's base competitiveness with slight randomization
         int compRaw = (area.competitivenessBase * (random.nextDouble() * 0.2 + 0.9)).round();
         int finalComp = min(100, max(20, compRaw));
 
-        String riskLevel = finalSuccess > 80 ? 'Low' : (finalSuccess > 60 ? 'Medium' : 'High');
-        if (startupCost > 200000000 && finalSuccess < 70) riskLevel = 'Very High';
+        String riskLevel = finalSuccess > 80 ? 'Low' : (finalSuccess > 50 ? 'Medium' : 'High');
+        if (startupCost > 200000000 && finalSuccess < 60) riskLevel = 'Very High';
 
         // Revenue scaling logic based on OP costs and traffic multipliers
         double baseRev = opCost * 1.5 * area.trafficMultiplier;

@@ -250,7 +250,7 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
                             style: GoogleFonts.inter(color: isDark ? Colors.white : Colors.black, fontSize: 14),
                             decoration: InputDecoration(
                               labelText: entry.key,
-                              labelStyle: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                              labelStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
                               hintText: 'e.g. 09:00, 10:00',
                               filled: true,
                               fillColor: isDark ? Colors.black12 : Colors.grey.shade100,

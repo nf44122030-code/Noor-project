@@ -263,10 +263,13 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
                           ],
                         ],
                       ))
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-                      itemCount: _experts.length,
-                      itemBuilder: (_, i) => _buildExpertCard(_experts[i], i, isDark),
+                  : RefreshIndicator(
+                      onRefresh: _loadExperts,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                        itemCount: _experts.length,
+                        itemBuilder: (_, i) => _buildExpertCard(_experts[i], i, isDark),
+                      ),
                     ),
         ),
       ],
@@ -350,20 +353,7 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
                       fontWeight: FontWeight.w600)),
                 ),
               ),
-              const SizedBox(width: 8),
-              // Direct Call button
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E3A5F) : const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: grad.first.withValues(alpha: 0.3)),
-                ),
-                child: IconButton(
-                  icon: Icon(Icons.videocam_rounded, color: grad.first, size: 20),
-                  onPressed: () => _startInstantCall(expert),
-                  tooltip: 'Start Live Call',
-                ),
-              ),
+              // Videocam button removed
             ],
           ),
         ),

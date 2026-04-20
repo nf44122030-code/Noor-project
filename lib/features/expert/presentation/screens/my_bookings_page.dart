@@ -17,9 +17,6 @@ class _MyBookingsPageState extends State<MyBookingsPage>
   final _firebaseService = FirebaseService();
   final _themeController = Get.find<ThemeController>();
 
-  List<Map<String, dynamic>> _bookings = [];
-  bool _isLoading = true;
-
   late TabController _tabController;
   final List<String> _tabs = ['All', 'Pending', 'Confirmed', 'completed'.tr, 'cancelled'.tr];
 
@@ -27,7 +24,6 @@ class _MyBookingsPageState extends State<MyBookingsPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
-    _loadBookings();
   }
 
   @override
@@ -36,19 +32,9 @@ class _MyBookingsPageState extends State<MyBookingsPage>
     super.dispose();
   }
 
-  Future<void> _loadBookings() async {
-    setState(() => _isLoading = true);
-    try {
-      final bookings = await _firebaseService.getMyBookings();
-      setState(() { _bookings = bookings; _isLoading = false; });
-    } catch (e) {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  List<Map<String, dynamic>> _filtered(String tab) {
-    if (tab == 'All') return _bookings;
-    return _bookings.where((b) => (b['status'] ?? '') == tab.toLowerCase()).toList();
+  List<Map<String, dynamic>> _filtered(List<Map<String, dynamic>> allBookings, String tab) {
+    if (tab == 'All') return allBookings;
+    return allBookings.where((b) => (b['status'] ?? '') == tab.toLowerCase()).toList();
   }
 
   // ── Status helpers ──────────────────────────────────────────────────────────
@@ -87,7 +73,6 @@ class _MyBookingsPageState extends State<MyBookingsPage>
       sessionCode: code,
     );
     _showSnack('✅ Booking confirmed! Confirmation email sent.', const Color(0xFF059669));
-    _loadBookings();
   }
 
   Future<void> _cancel(Map<String, dynamic> b) async {
@@ -107,13 +92,11 @@ class _MyBookingsPageState extends State<MyBookingsPage>
       reason:      reason,
     );
     _showSnack('❌ Booking cancelled. Both parties have been notified.', const Color(0xFFDC2626));
-    _loadBookings();
   }
 
   Future<void> _complete(Map<String, dynamic> b) async {
     await _firebaseService.completeBooking(b['id']);
     _showSnack('🎉 Session marked as completed!', const Color(0xFF2563EB));
-    _loadBookings();
   }
 
   void _showSnack(String msg, Color color) {
@@ -198,8 +181,8 @@ class _MyBookingsPageState extends State<MyBookingsPage>
                             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
                                 color: Colors.white, letterSpacing: 2.5)))),
                       IconButton(
-                        icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                        onPressed: _loadBookings),
+                        icon: const Icon(Icons.refresh_rounded, color: Colors.transparent),
+                        onPressed: () {}),
                     ]),
                     const SizedBox(height: 8),
                     // Tabs
@@ -220,35 +203,40 @@ class _MyBookingsPageState extends State<MyBookingsPage>
 
               // ── Content ─────────────────────────────────────────────────
               Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : TabBarView(
-                        controller: _tabController,
-                        children: _tabs.map((tab) {
-                          final list = _filtered(tab);
-                          if (list.isEmpty) {
-                            return Center(
-                              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                Icon(Icons.calendar_today_outlined, size: 64,
-                                    color: isDark ? Colors.white24 : Colors.black12),
-                                const SizedBox(height: 16),
-                                Text('No ${tab.toLowerCase()} bookings',
-                                    style: TextStyle(
-                                        color: isDark ? Colors.white38 : Colors.black38,
-                                        fontSize: 16)),
-                              ]),
-                            );
-                          }
-                          return RefreshIndicator(
-                            onRefresh: _loadBookings,
-                            child: ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-                              itemCount: list.length,
-                              itemBuilder: (_, i) => _buildCard(list[i], isDark),
-                            ),
+                child: StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _firebaseService.getMyBookingsStream(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return const Center(child: Text('Error loading bookings', style: TextStyle(color: Colors.red)));
+                    }
+
+                    final allBookings = snapshot.data ?? [];
+
+                    return TabBarView(
+                      controller: _tabController,
+                      children: _tabs.map((tab) {
+                        final list = _filtered(allBookings, tab);
+                        if (list.isEmpty) {
+                          return Center(
+                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(Icons.calendar_today_outlined, size: 64, color: isDark ? Colors.white24 : Colors.black12),
+                              const SizedBox(height: 16),
+                              Text('No ${tab.toLowerCase()} bookings', style: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontSize: 16)),
+                            ]),
                           );
-                        }).toList(),
-                      ),
+                        }
+                        return ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                          itemCount: list.length,
+                          itemBuilder: (_, i) => _buildCard(list[i], isDark),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
               ),
             ],
           ),

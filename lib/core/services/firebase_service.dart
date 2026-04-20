@@ -119,7 +119,7 @@ class FirebaseService {
     try {
       debugPrint('🔍 [FIREBASE] Attempting to fetch experts...');
 
-      final snapshot = await _firestore.collection('experts').get();
+      final snapshot = await _firestore.collection('experts').get(const GetOptions(source: Source.serverAndCache));
       debugPrint(
           '🔍 [FIREBASE] Snapshot received. Document count: ${snapshot.docs.length}');
 
@@ -211,6 +211,25 @@ class FirebaseService {
       return bTime.compareTo(aTime);
     });
     return docs;
+  }
+
+  /// Returns a real-time stream of bookings for the current user.
+  Stream<List<Map<String, dynamic>>> getMyBookingsStream() async* {
+    final uid = await getEffectiveUid();
+    
+    yield* _firestore
+        .collection('bookings')
+        .where('user_id', isEqualTo: uid)
+        .snapshots()
+        .map((snap) {
+          final docs = snap.docs.map((d) => {...d.data(), 'id': d.id}).toList();
+          docs.sort((a, b) {
+            final aTime = (a['created_at'] as Timestamp?)?.toDate() ?? DateTime(2000);
+            final bTime = (b['created_at'] as Timestamp?)?.toDate() ?? DateTime(2000);
+            return bTime.compareTo(aTime);
+          });
+          return docs;
+        });
   }
 
   /// Marks booking as confirmed and returns the generated 5-digit session code.

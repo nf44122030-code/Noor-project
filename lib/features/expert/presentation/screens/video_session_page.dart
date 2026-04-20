@@ -945,8 +945,9 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
   bool _isExtractingInsights = false;
 
   Widget _buildNotesPanel() {
+    final isDark = themeController.isDarkMode;
     return Container(
-      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(-5, 0))]),
+      decoration: BoxDecoration(color: isDark ? AppColors.surfaceDark : Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(-5, 0))]),
       child: Column(
         children: [
           Container(
@@ -1046,6 +1047,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
               itemBuilder: (context, index) {
                 final note = notesController.currentSessionNotes[index];
                 return Card(
+                  color: isDark ? AppColors.bgDark : Colors.white,
                   margin: const EdgeInsets.only(bottom: 12),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -1060,7 +1062,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text(note.content),
+                        Text(note.content, style: TextStyle(color: isDark ? Colors.white : Colors.black)),
                       ],
                     ),
                   ),
