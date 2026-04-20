@@ -420,7 +420,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         _pendingPhrases.clear();
       }
       AgoraService.addTranscriptSnippet('Session ended after ${_formatTime(_sessionTime)} with $_expertName.');
-      final aiNotes = await AgoraService.generateSessionNotes();
+      final aiNotes = await AgoraService.generateSessionNotes(_partialText);
       
       if (mounted && aiNotes != null && !aiNotes.contains("No conversation data")) {
         final savedSession = await notesController.saveSession(
@@ -455,7 +455,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         _pendingPhrases.clear();
       }
       AgoraService.addTranscriptSnippet('Session was ended by the other participant.');
-      final aiNotes = await AgoraService.generateSessionNotes();
+      final aiNotes = await AgoraService.generateSessionNotes(_partialText);
       
       if (mounted && aiNotes != null && !aiNotes.contains("No conversation data")) {
          final savedSession = await notesController.saveSession(
@@ -1014,7 +1014,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                 onPressed: _isExtractingInsights ? null : () async {
                   setState(() => _isExtractingInsights = true);
                   try {
-                    final aiNotes = await AgoraService.generateSessionNotes();
+                    final aiNotes = await AgoraService.generateSessionNotes(_partialText);
                     if (aiNotes != null) {
                       notesController.addGeneratedNote(aiNotes);
                     } else {

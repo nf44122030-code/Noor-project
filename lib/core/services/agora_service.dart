@@ -261,6 +261,7 @@ class AgoraService {
         if (varint == null) break;
         pos = varint.nextPos;
         if (fieldNumber == 4) uid = varint.value; // uid field
+        if (fieldNumber == 11 && varint.value != 0) isFinal = true; // end_of_segment field
       } else if (wireType == 2) {
         // Length-delimited
         final lenResult = _readVarint(data, pos);
@@ -367,12 +368,17 @@ class AgoraService {
   }
 
   /// Uses Gemini to summarize the live session and generate notes.
-  static Future<String?> generateSessionNotes() async {
-    if (_transcriptBuffer.isEmpty) {
+  static Future<String?> generateSessionNotes([String? partialText]) async {
+    final buffer = List<String>.from(_transcriptBuffer);
+    if (partialText != null && partialText.trim().isNotEmpty) {
+      buffer.add('[Speaker]: ${partialText.trim()}');
+    }
+    
+    if (buffer.isEmpty) {
       return "No conversation data captured during the session.";
     }
 
-    final transcript = _transcriptBuffer.join("\n");
+    final transcript = buffer.join("\n");
     final prompt = '''
       You are the Intellix AI Meeting Assistant. 
       Below is a transcript of a business expert consultation. 
