@@ -17,11 +17,31 @@ export default async function handler(req, res) {
   const credentials = Buffer.from(`${CUSTOMER_KEY}:${CUSTOMER_SECRET}`).toString('base64');
   const authHeader = `Basic ${credentials}`;
 
+  const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || 'c1a88f42995e47458d0e442a29943fdb';
+
   const { action, channelName, agentId } = req.body || {};
 
   try {
     if (action === 'start') {
       if (!channelName) return res.status(400).json({ error: 'channelName is required' });
+
+      // Generate tokens for the STT bots
+      let subBotToken = '';
+      let pubBotToken = '';
+      try {
+        const agoraLib = require('agora-token');
+        const role = agoraLib.RtcRole.PUBLISHER;
+        const privilegeExpireTime = Math.floor(Date.now() / 1000) + 86400;
+        
+        subBotToken = agoraLib.RtcTokenBuilder.buildTokenWithUid(
+          APP_ID, APP_CERTIFICATE, channelName, 47091, role, privilegeExpireTime, privilegeExpireTime
+        );
+        pubBotToken = agoraLib.RtcTokenBuilder.buildTokenWithUid(
+          APP_ID, APP_CERTIFICATE, channelName, 88222, role, privilegeExpireTime, privilegeExpireTime
+        );
+      } catch (e) {
+        console.error('STT Token generation failed:', e);
+      }
 
       // Start STT agent
       const response = await fetch(
@@ -39,7 +59,10 @@ export default async function handler(req, res) {
             rtcConfig: {
               channelName: channelName,
               subBotUid: '47091',
+              subBotToken: subBotToken,
               pubBotUid: '88222',
+              pubBotToken: pubBotToken,
+              subscribeAudioUids: ["#all#"],
             },
           }),
         }
