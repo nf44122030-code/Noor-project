@@ -144,6 +144,22 @@ class FirebaseService {
     }
   }
 
+  /// Returns a real-time stream of all experts, updating instantly when any expert profile changes.
+  Stream<List<Expert>> getExpertsStream() {
+    return _firestore.collection('experts').snapshots().map((snapshot) {
+      final List<Expert> experts = [];
+      for (final doc in snapshot.docs) {
+        try {
+          final data = doc.data();
+          experts.add(Expert.fromJson({...data, 'id': doc.id}));
+        } catch (e) {
+          debugPrint('❌ [FIREBASE] Failed to parse expert ${doc.id}: $e');
+        }
+      }
+      return experts;
+    });
+  }
+
   // --- Booking Lifecycle ---
 
   /// Creates a new booking document with status = 'pending'.

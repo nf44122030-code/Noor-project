@@ -20,9 +20,7 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
   final _themeController = Get.find<ThemeController>();
   final _authController  = Get.find<AuthController>();
 
-  List<Expert> _experts = [];
-  bool _isLoading = true;
-  String? _errorMessage;
+  late final Stream<List<Expert>> _expertsStream;
 
   // Selection state
   Expert?  _selectedExpert;
@@ -55,34 +53,13 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
   @override
   void initState() {
     super.initState();
-    _loadExperts();
+    _expertsStream = _firebaseService.getExpertsStream();
   }
 
   @override
   void dispose() {
     _notesController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadExperts() async {
-    try {
-      final experts = await _firebaseService.getExperts();
-      if (mounted) {
-        setState(() { 
-          _experts = experts; 
-          _isLoading = false; 
-          _errorMessage = experts.isEmpty ? "Found 0 experts in collection 'experts'." : null;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading experts: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = "Error: $e";
-        });
-      }
-    }
   }
 
   // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -235,32 +212,47 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
           ),
         ),
 
-        // Expert list
+        // Expert list – real-time stream
         Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _experts.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text('no_experts'.tr,
-                              style: TextStyle(color: isDark ? Colors.white54 : Colors.black38)),
-                          if (_errorMessage != null) ...[
-                            const SizedBox(height: 8),
-                            Text(_errorMessage!,
-                                style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
-                          ],
-                        ],
-                      ))
-                  : RefreshIndicator(
-                      onRefresh: _loadExperts,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-                        itemCount: _experts.length,
-                        itemBuilder: (_, i) => _buildExpertCard(_experts[i], i, isDark),
-                      ),
-                    ),
+          child: StreamBuilder<List<Expert>>(
+            stream: _expertsStream,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text('Error: ${snapshot.error}',
+                      style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                );
+              }
+
+              final experts = snapshot.data ?? [];
+
+              // Keep selected expert in sync with latest data
+              if (_selectedExpert != null && experts.isNotEmpty) {
+                final updated = experts.where((e) => e.id == _selectedExpert!.id).firstOrNull;
+                if (updated != null && updated != _selectedExpert) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _selectedExpert = updated);
+                  });
+                }
+              }
+
+              if (experts.isEmpty) {
+                return Center(
+                  child: Text('no_experts'.tr,
+                      style: TextStyle(color: isDark ? Colors.white54 : Colors.black38)),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                itemCount: experts.length,
+                itemBuilder: (_, i) => _buildExpertCard(experts[i], i, isDark),
+              );
+            },
+          ),
         ),
       ],
     );
