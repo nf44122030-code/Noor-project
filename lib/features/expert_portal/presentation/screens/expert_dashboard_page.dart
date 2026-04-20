@@ -286,16 +286,16 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
 
                           final expertId = expertProfile['id'] ?? expertProfile['email'];
                           if (expertId == null) throw Exception("Expert ID is missing");
-                          
+                          final navigator = Navigator.of(ctx);
                           await FirebaseService().updateExpertProfileData(expertId, {'schedule': newSchedule});
                           
-                          // Update active local state so UI doesn't require reload
                           final updatedProfile = Map<String, dynamic>.from(expertProfile);
                           updatedProfile['schedule'] = newSchedule;
-                          authController.expertProfile.value = updatedProfile;
+                          authController.expertProfile.clear();
+                          authController.expertProfile.addAll(updatedProfile);
 
                           if (mounted) {
-                            Navigator.pop(ctx);
+                            navigator.pop();
                             Get.snackbar('Success', 'Availability schedule updated', 
                               backgroundColor: Colors.green.shade800, colorText: Colors.white);
                           }
