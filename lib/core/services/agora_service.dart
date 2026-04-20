@@ -155,7 +155,7 @@ class AgoraService {
   // ─── Agora Real-Time STT (Cloud Service) ──────────────────
 
   /// Start the Agora Real-Time STT cloud agent for a channel.
-  static Future<void> startSttAgent(String channelName) async {
+  static Future<bool> startSttAgent(String channelName) async {
     try {
       final url = Uri.parse('https://noor-project-nine.vercel.app/api/agora/stt');
       final response = await http.post(
@@ -164,23 +164,25 @@ class AgoraService {
         body: jsonEncode({'action': 'start', 'channelName': channelName}),
       ).timeout(const Duration(seconds: 10));
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = jsonDecode(response.body);
         _sttAgentId = data['agentId'];
         debugPrint('STT Agent started: $_sttAgentId');
+        return true;
       } else if (response.statusCode == 409) {
         // 409 = Conflict: an STT agent is already running for this channel.
         // This happens when both participants call startSttAgent. Treat as success.
         debugPrint('STT Agent already running for this channel (409) — OK, continuing.');
-        // We don't have the existing agentId, so we won't be able to stop it
-        // explicitly; it will auto-expire via maxIdleTime.
+        return true;
       } else {
         debugPrint('STT start failed: ${response.body}');
         if (onAgoraError != null) onAgoraError!('STT start failed: ${response.statusCode}');
+        return false;
       }
     } catch (e) {
       debugPrint('STT start error: $e');
       if (onAgoraError != null) onAgoraError!('STT start error: $e');
+      return false;
     }
   }
 

@@ -250,18 +250,14 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
       if (mounted) {
         _startTimer();
 
-        // 3. Start Agora Real-Time STT cloud agent.
-        // Only the CLIENT starts the agent to avoid a 409 Conflict,
-        // but BOTH sides see the transcript via onStreamMessage.
-        if (isClient) {
-          try {
-            await AgoraService.startSttAgent(channelId);
-          } catch (e) {
-            debugPrint('STT agent start failed: $e');
-          }
+        // Both sides can try to start it. The backend returns 409 Conflict if it's already running.
+        try {
+          final success = await AgoraService.startSttAgent(channelId);
+          // Only show overlay if STT started successfully or is already running
+          if (mounted && success) setState(() => _isTranscribing = true);
+        } catch (e) {
+          debugPrint('STT agent start failed: $e');
         }
-        // Enable transcript overlay for both sides
-        if (mounted) setState(() => _isTranscribing = true);
 
         // Auto-start recording and AI Note timers so we don't miss the conversation
         if (!notesController.isRecording.value) {
