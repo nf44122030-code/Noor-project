@@ -235,12 +235,17 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         });
         _startTimer();
 
-        // 3. Start Agora Real-Time STT cloud agent
-        try {
-          await AgoraService.startSttAgent(channelId);
-          if (mounted) setState(() => _isTranscribing = true);
-        } catch (e) {
-          debugPrint('STT agent start failed: $e');
+        // 3. Start Agora Real-Time STT cloud agent.
+        // Only the CLIENT side starts the agent to avoid a 409 Conflict when both
+        // participants try to create an agent for the same channel simultaneously.
+        // The expert side will still receive transcriptions via stream messages.
+        if (isClient) {
+          try {
+            await AgoraService.startSttAgent(channelId);
+            if (mounted) setState(() => _isTranscribing = true);
+          } catch (e) {
+            debugPrint('STT agent start failed: $e');
+          }
         }
 
         setState(() {
@@ -251,7 +256,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
           });
         });
 
-        // 3. Listen to the booking document for disconnects
+        // 4. Listen to the booking document for disconnects
         _bookingSubscription = FirebaseFirestore.instance
             .collection('bookings')
             .doc(channelId)

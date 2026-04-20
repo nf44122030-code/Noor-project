@@ -50,15 +50,18 @@ class AgoraService {
             if (onRemoteUserOffline != null) onRemoteUserOffline!(remoteUid);
           }
         },
-        // Fires when a user's video becomes available - catches users ALREADY in the channel
+        // Fires when a user's video becomes available — catches users ALREADY in the channel
+        // NOTE: We only call onRemoteUserJoined here. We do NOT call onRemoteUserOffline
+        // for Stopped/Failed because those states fire transiently during connection setup
+        // and would race with onUserJoined, hiding the remote feed. Only onUserOffline
+        // (actual disconnection) should clear the remote view.
         onRemoteVideoStateChanged: (RtcConnection connection, int remoteUid, RemoteVideoState state, RemoteVideoStateReason reason, int elapsed) {
           debugPrint("📹 Agora onRemoteVideoStateChanged: uid=$remoteUid state=$state");
           if (remoteUid == _pubBotUid || remoteUid == 47091) return;
           if (state == RemoteVideoState.remoteVideoStateDecoding || state == RemoteVideoState.remoteVideoStateStarting) {
             if (onRemoteUserJoined != null) onRemoteUserJoined!(remoteUid);
-          } else if (state == RemoteVideoState.remoteVideoStateStopped || state == RemoteVideoState.remoteVideoStateFailed) {
-            if (onRemoteUserOffline != null) onRemoteUserOffline!(remoteUid);
           }
+          // Do NOT clear remoteUid on Stopped/Failed — onUserOffline handles true disconnection
         },
         onError: (ErrorCodeType err, String msg) {
           debugPrint("Agora Error $err: $msg");
@@ -164,6 +167,12 @@ class AgoraService {
         final data = jsonDecode(response.body);
         _sttAgentId = data['agentId'];
         debugPrint('STT Agent started: $_sttAgentId');
+      } else if (response.statusCode == 409) {
+        // 409 = Conflict: an STT agent is already running for this channel.
+        // This happens when both participants call startSttAgent. Treat as success.
+        debugPrint('STT Agent already running for this channel (409) — OK, continuing.');
+        // We don't have the existing agentId, so we won't be able to stop it
+        // explicitly; it will auto-expire via maxIdleTime.
       } else {
         debugPrint('STT start failed: ${response.body}');
         if (onAgoraError != null) onAgoraError!('STT start failed: ${response.statusCode}');
