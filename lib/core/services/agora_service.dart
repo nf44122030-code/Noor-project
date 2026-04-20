@@ -70,9 +70,8 @@ class AgoraService {
         },
         // ─── Receive STT transcription data from the pubBot ───
         onStreamMessage: (RtcConnection connection, int remoteUid, int streamId, Uint8List data, int length, int sentTs) {
-          if (remoteUid == _pubBotUid) {
-            _handleSttData(data);
-          }
+          debugPrint("Agora: Received stream message from $remoteUid (streamId: $streamId), data length: $length");
+          _handleSttData(data);
         },
         onStreamMessageError: (RtcConnection connection, int remoteUid, int streamId, ErrorCodeType code, int missed, int cached) {
           debugPrint("Agora: Stream message error from $remoteUid: $code");

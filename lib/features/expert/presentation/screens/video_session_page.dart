@@ -248,9 +248,6 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
       await AgoraService.joinChannel(channelId, 0);
       
       if (mounted) {
-        setState(() {
-          _showChat = true;
-        });
         _startTimer();
 
         // 3. Start Agora Real-Time STT cloud agent.
