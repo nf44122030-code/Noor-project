@@ -168,15 +168,6 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
     });
   }
 
-  void _startInstantCall(Expert expert) {
-    final randomCode = (Random().nextInt(90000) + 10000).toString();
-    context.push('/video-session', extra: {
-      'expertName': expert.name,
-      'expertTitle': expert.title,
-      'initialCode': randomCode,
-    });
-  }
-
   // ══════════════════════════════════════════════════════════════════════════════
   //  BUILD
   // ══════════════════════════════════════════════════════════════════════════════
