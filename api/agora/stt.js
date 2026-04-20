@@ -62,7 +62,6 @@ export default async function handler(req, res) {
               subBotToken: subBotToken,
               pubBotUid: '88222',
               pubBotToken: pubBotToken,
-              subscribeAudioUids: ["#all#"],
             },
           }),
         }
