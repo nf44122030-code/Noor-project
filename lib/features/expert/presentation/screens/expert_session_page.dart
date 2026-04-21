@@ -28,6 +28,7 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
   bool     _showBooking = false;
   bool     _showSuccess = false;
   bool     _isSending   = false;
+  List<Expert> _experts = []; // Added to persist experts list for index lookups
 
   // Booking form
   String?   _selectedDay;
@@ -228,6 +229,7 @@ class _ExpertSessionPageState extends State<ExpertSessionPage> {
               }
 
               final experts = snapshot.data ?? [];
+              _experts = experts; // Update reference for detail/booking sheets
 
               // Keep selected expert in sync with latest data
               if (_selectedExpert != null && experts.isNotEmpty) {
