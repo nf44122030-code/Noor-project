@@ -53,7 +53,7 @@ class NotesController extends GetxController {
       id: const Uuid().v4(),
       timestamp: DateTime.now(),
       speaker: "AI Assistant generated this note insight",
-      content: content,
+      content: content.replaceAll('*', '').trim(),
       type: 'key-point',
     );
     // Add to top of current notes
@@ -66,6 +66,8 @@ class NotesController extends GetxController {
     required int duration,
     String? aiContent,
   }) async {
+    final cleanedAiContent = aiContent?.replaceAll('*', '').trim();
+    
     final session = SessionNote(
       id: const Uuid().v4(),
       expertName: expertName,
@@ -74,7 +76,7 @@ class NotesController extends GetxController {
       duration: duration,
       notes: List<NoteDetail>.from(_currentSessionNotes),
       summary: _generateSummary(),
-      aiContent: aiContent,
+      aiContent: cleanedAiContent,
     );
 
     _sessionNotes.add(session);

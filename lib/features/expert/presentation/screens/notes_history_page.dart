@@ -240,22 +240,6 @@ class NotesHistoryPage extends StatelessWidget {
                                       color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
                                       itemBuilder: (context) => [
                                         PopupMenuItem(
-                                          value: 'share',
-                                          child: Row(children: [
-                                            Icon(Icons.share_rounded, size: 19, color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight),
-                                            const SizedBox(width: 12),
-                                            Text('share'.tr, style: GoogleFonts.inter(color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight)),
-                                          ]),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'download',
-                                          child: Row(children: [
-                                            Icon(Icons.download_rounded, size: 19, color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight),
-                                            const SizedBox(width: 12),
-                                            Text('download'.tr, style: GoogleFonts.inter(color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight)),
-                                          ]),
-                                        ),
-                                        PopupMenuItem(
                                           value: 'delete',
                                           child: Row(children: [
                                             const Icon(Icons.delete_rounded, size: 19, color: AppColors.error),
@@ -313,7 +297,7 @@ class NotesHistoryPage extends StatelessWidget {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          session.summary.split('\n').first,
+                                          session.summary.replaceAll('*', '').split('\n').first,
                                           style: GoogleFonts.inter(
                                             fontSize: 12,
                                             height: 1.5,

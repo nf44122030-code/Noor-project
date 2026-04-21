@@ -1030,34 +1030,27 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
             ),
           ),
           Expanded(
-            child: Obx(() => ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: notesController.currentSessionNotes.length,
-              itemBuilder: (context, index) {
-                final note = notesController.currentSessionNotes[index];
-                return Card(
-                  color: isDark ? AppColors.bgDark : Colors.white,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.auto_awesome, color: Colors.orange, size: 16),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(note.speaker, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange))),
-                          ],
+            child: Obx(() {
+              final String consolidatedText = notesController.currentSessionNotes
+                  .map((note) => note.content)
+                  .join('\n\n')
+                  .replaceAll('*', '')
+                  .trim();
+                  
+              return consolidatedText.isEmpty
+                  ? Center(child: Text('No notes yet', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)))
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        consolidatedText,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                          fontSize: 15,
+                          height: 1.6,
                         ),
-                        const SizedBox(height: 8),
-                        Text(note.content, style: TextStyle(color: isDark ? Colors.white : Colors.black)),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            )),
+                      ),
+                    );
+            }),
           ),
         ],
       ),
