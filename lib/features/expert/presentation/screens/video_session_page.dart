@@ -429,7 +429,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
           duration: _sessionTime,
           aiContent: aiNotes,
         );
-        if (mounted) context.go('/session-notes/${savedSession.id}');
+        if (mounted) context.pushReplacement('/session-notes/${savedSession.id}');
       } else if (mounted) {
         // Fallback: If no real conversation was had, still create a basic log
          final savedSession = await notesController.saveSession(
@@ -438,7 +438,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
           duration: _sessionTime,
           aiContent: "No discussion notes generated. The session ended quickly or no words were spoken.",
         );
-        if (mounted) context.go('/session-notes/${savedSession.id}');
+        if (mounted) context.pushReplacement('/session-notes/${savedSession.id}');
       }
     } catch (e) {
       if (mounted) context.pop();
@@ -464,7 +464,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
           duration: _sessionTime,
           aiContent: aiNotes,
         );
-        if (mounted) context.go('/session-notes/${savedSession.id}');
+        if (mounted) context.pushReplacement('/session-notes/${savedSession.id}');
       } else if (mounted) {
         // Fallback: If no real conversation was had, still create a basic log
          final savedSession = await notesController.saveSession(
@@ -473,7 +473,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
           duration: _sessionTime,
           aiContent: "No discussion notes generated. The session was ended before significant conversation occurred.",
         );
-        if (mounted) context.go('/session-notes/${savedSession.id}');
+        if (mounted) context.pushReplacement('/session-notes/${savedSession.id}');
       }
     } catch (e) {
       if (mounted) context.pop();
@@ -639,26 +639,10 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                   child: Stack(
                     children: [
                       // ── Main video area (remote feed or waiting state) ──
-                      if (!_isVideoOn)
-                        Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 100, height: 100,
-                                decoration: BoxDecoration(color: Colors.grey[800], shape: BoxShape.circle),
-                                child: const Icon(Icons.person, color: Colors.white, size: 60),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text('Camera Off', style: TextStyle(color: Colors.white70)),
-                            ],
-                          ),
-                        )
-                      else
-                        SizedBox.expand(
-                          child: _remoteUid != null
-                              ? AgoraVideoView(
-                                  controller: VideoViewController.remote(
+                      SizedBox.expand(
+                        child: _remoteUid != null
+                            ? AgoraVideoView(
+                                controller: VideoViewController.remote(
                                     rtcEngine: AgoraService.engine,
                                     canvas: VideoCanvas(
                                       uid: _remoteUid,
@@ -732,7 +716,12 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                                     ),
                                   ),
                                 )
-                              : Container(color: Colors.grey[900], child: const Icon(Icons.videocam_off, color: Colors.white54)),
+                              : Container(
+                                  color: Colors.grey[900], 
+                                  child: const Center(
+                                    child: Icon(Icons.person, color: Colors.white54, size: 40)
+                                  ),
+                                ),
                         ),
                       ),
 
