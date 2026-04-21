@@ -275,9 +275,9 @@ class SessionNotesPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // AI Summary Section
+                  // Consolidated Notes Section
                   Text(
-                    'AI Summary',
+                    'Session Transcript & Insights',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -286,194 +286,35 @@ class SessionNotesPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.amber.withValues(alpha: isDark ? 0.15 : 0.1),
-                          Colors.orange.withValues(alpha: isDark ? 0.12 : 0.08),
-                        ],
-                      ),
+                      color: cardColor,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.amber,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'AI-Generated Insights',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          session.summary,
-                          style: TextStyle(fontSize: 14, color: textPrimary, height: 1.5),
+                      border: Border.all(color: cardBorder),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                          blurRadius: 10,
                         ),
                       ],
                     ),
+                    child: Builder(
+                      builder: (context) {
+                        final mergedNotes = session.notes.map((n) => n.content).join('\n\n');
+                        final String rawText = session.aiContent?.isNotEmpty == true 
+                            ? session.aiContent! 
+                            : (mergedNotes.isNotEmpty ? mergedNotes : session.summary);
+                        final String cleanedText = rawText.replaceAll('*', '').trim();
+
+                        return Text(
+                          cleanedText,
+                          style: TextStyle(fontSize: 15, color: textPrimary, height: 1.6),
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(height: 24),
-
-                  // Detailed Notes Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Detailed Notes',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: textPrimary,
-                        ),
-                      ),
-                      Text(
-                        '${session.notes.length} entries',
-                        style: TextStyle(fontSize: 14, color: textSecondary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Notes List
-                  ...session.notes.map((note) => Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: cardColor,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: cardBorder),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: accentBlue,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    '${note.timestamp.hour}:${note.timestamp.minute.toString().padLeft(2, '0')}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    note.speaker,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: textPrimary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              note.content,
-                              style: TextStyle(fontSize: 14, color: textPrimary, height: 1.4),
-                            ),
-                            if (note.aiInsight.isNotEmpty)
-                              Column(
-                                children: [
-                                  const SizedBox(height: 12),
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.withValues(alpha: isDark ? 0.15 : 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.auto_awesome, size: 16, color: Colors.amber),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            note.aiInsight,
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: textSecondary,
-                                              fontStyle: FontStyle.italic,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      )),
-
-                  const SizedBox(height: 32),
-
-                  // Action Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('notes_downloaded'.tr)),
-                            );
-                          },
-                          icon: Icon(Icons.download, color: accentBlue),
-                          label: Text('Download PDF', style: TextStyle(color: accentBlue)),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: BorderSide(color: accentBlue),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('notes_sent_email'.tr)),
-                            );
-                          },
-                          icon: const Icon(Icons.email, color: Colors.white),
-                          label: const Text('Email Notes', style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            backgroundColor: accentBlue,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
                   // Done button — always navigates home, works even if nav stack is empty
                   SizedBox(
                     width: double.infinity,
