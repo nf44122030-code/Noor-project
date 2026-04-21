@@ -46,9 +46,13 @@ service cloud.firestore {
       }
     }
     
-    // experts: Anyone can read expert profiles
+    // experts: Anyone can read expert profiles;
+    // experts can update their own profile (schedule, bio, etc.)
     match /experts/{id} {
       allow read: if true;
+      allow write: if request.auth != null
+                   && resource != null
+                   && request.auth.token.email == resource.data.email;
     }
 
     // bookings & ai_sessions: Allow all authenticated users
