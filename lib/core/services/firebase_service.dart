@@ -208,6 +208,22 @@ class FirebaseService {
       'reminder_sent': false,
       'created_at': FieldValue.serverTimestamp(),
     });
+
+    // Send notification to the expert
+    try {
+      await _firestore.collection('notifications').add({
+        'user_id': expertId,
+        'title': 'New Booking Request',
+        'description': '${user.displayName ?? 'A user'} has requested a session on $sessionDate at $sessionTime.',
+        'type': 'session',
+        'is_read': false,
+        'created_at': FieldValue.serverTimestamp(),
+        'icon_name': 'event',
+      });
+    } catch (e) {
+      debugPrint("Error sending booking notification to expert: $e");
+    }
+
     return doc.id;
   }
 
@@ -253,11 +269,34 @@ class FirebaseService {
   /// Marks booking as confirmed and returns the generated 5-digit session code.
   Future<String> confirmBooking(String bookingId) async {
     final code = (10000 + Random().nextInt(90000)).toString();
+    
+    // Get booking to find user_id
+    final bookingDoc = await _firestore.collection('bookings').doc(bookingId).get();
+    final bookingData = bookingDoc.data();
+
     await _firestore.collection('bookings').doc(bookingId).update({
       'status': 'confirmed',
       'session_code': code,
       'confirmed_at': FieldValue.serverTimestamp(),
     });
+
+    // Send notification to the user
+    if (bookingData != null && bookingData['user_id'] != null) {
+      try {
+        await _firestore.collection('notifications').add({
+          'user_id': bookingData['user_id'],
+          'title': 'Booking Confirmed',
+          'description': 'Your session with ${bookingData['expert_name'] ?? 'an expert'} has been confirmed. Session Code: $code',
+          'type': 'session',
+          'is_read': false,
+          'created_at': FieldValue.serverTimestamp(),
+          'icon_name': 'check_circle',
+        });
+      } catch (e) {
+        debugPrint("Error sending approval notification to user: $e");
+      }
+    }
+
     return code;
   }
 
