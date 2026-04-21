@@ -297,7 +297,7 @@ class NotesHistoryPage extends StatelessWidget {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          session.summary.replaceAll('*', '').split('\n').first,
+                                          (session.aiContent?.isNotEmpty == true ? session.aiContent! : session.summary).replaceAll('*', '').replaceAll('\n', ' ').trim(),
                                           style: GoogleFonts.inter(
                                             fontSize: 12,
                                             height: 1.5,
