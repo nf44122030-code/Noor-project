@@ -93,7 +93,7 @@ class SessionNotesPage extends StatelessWidget {
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
-                            letterSpacing: 6,
+                            letterSpacing: 4,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -124,14 +124,7 @@ class SessionNotesPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.share, color: Colors.white),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('sharing_notes'.tr)),
-                    );
-                  },
-                ),
+                const SizedBox(width: 48), // Match back button width to keep center aligned
               ],
             ),
           ),
