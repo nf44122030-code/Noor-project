@@ -1004,7 +1004,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
                 onPressed: _isExtractingInsights ? null : () async {
                   setState(() => _isExtractingInsights = true);
                   try {
-                    final aiNotes = await AgoraService.generateSessionNotes(_partialText);
+                    final aiNotes = await AgoraService.generateSessionNotes(_sessionTime, _partialText);
                     if (aiNotes != null) {
                       notesController.addGeneratedNote(aiNotes);
                     } else {
