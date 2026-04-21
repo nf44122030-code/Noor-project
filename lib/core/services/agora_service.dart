@@ -86,6 +86,8 @@ class AgoraService {
   }
 
   static Future<void> joinChannel(String channelId, int uid) async {
+    _transcriptBuffer.clear();
+    _lastPartialText = "";
     debugPrint('🔑 AgoraService.joinChannel — channelId="$channelId" uid=$uid');
     const options = ChannelMediaOptions(
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
@@ -143,7 +145,6 @@ class AgoraService {
   static Future<void> leaveChannel() async {
     await stopSttAgent();
     await _engine?.leaveChannel();
-    _transcriptBuffer.clear();
   }
 
   static Future<void> dispose() async {
@@ -151,6 +152,7 @@ class AgoraService {
     await _engine?.leaveChannel();
     await _engine?.release();
     _engine = null;
+    _transcriptBuffer.clear();
     onRemoteUserJoined = null;
     onRemoteUserOffline = null;
     onTranscriptUpdate = null;
