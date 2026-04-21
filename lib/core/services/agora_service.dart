@@ -388,7 +388,7 @@ class AgoraService {
   }
 
   /// Uses Gemini to summarize the live session and generate notes.
-  static Future<String?> generateSessionNotes([String? partialText]) async {
+  static Future<String?> generateSessionNotes(int sessionDurationInSeconds, [String? partialText]) async {
     final buffer = List<String>.from(_transcriptBuffer);
     if (partialText != null && partialText.trim().isNotEmpty) {
       buffer.add('[Speaker]: ${partialText.trim()}');
@@ -399,20 +399,26 @@ class AgoraService {
     }
 
     final transcript = buffer.join("\n");
+    final minutes = (sessionDurationInSeconds / 60).ceil();
     final prompt = '''
       You are the Intellix AI Meeting Assistant. 
-      Below is a transcript of a business expert consultation. 
-      Please provide:
-      1. A summary of the key discussion points.
-      2. Action items for the user.
-      3. Strategic recommendations based on the conversation.
+      Below is a transcript of a business expert consultation that lasted for $minutes minute(s). 
+      Please provide comprehensive notes that cover EVERYTHING discussed during the ENTIRE call, from start to finish, not just the last points.
+      
+      Scale the length of your notes logically based on the call duration ($minutes minute(s)): if it was a short call, provide a brief overview. If it was a long call, provide more detailed notes proportionally.
+
+      Please structure the notes naturally with:
+      1. A summary of the key discussion points
+      2. Action items for the user
+      3. Strategic recommendations based on the conversation
 
       **CRITICAL FORMATTING INSTRUCTIONS:**
+      - DO NOT use Markdown headings (#) or bolding (**). Write naturally as plain text.
+      - Use standard dashes for bulleted lists and numbers for numbered lists.
       - Provide ONLY the raw requested notes.
       - DO NOT use quotation marks around your entire response.
       - DO NOT include conversational fluff like "Here are the notes" or "This report aims to provide...".
       - DO NOT include closing remarks like "If you need anything else, let me know!".
-      - Output professional, highly formatted Markdown only.
 
       TRANSCRIPT:
       $transcript

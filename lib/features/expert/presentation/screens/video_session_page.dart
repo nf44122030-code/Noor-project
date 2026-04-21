@@ -315,7 +315,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
           'You are the Intellix AI Meeting Assistant listening live to a consultation '
           'between a user and $_expertName ($_expertTitle).\n'
           'Based on the following spoken excerpt, extract 1-2 concise key insights, '
-          'action items, or important points. Use short bullet points.\n\n'
+          'action items, or important points. Use standard dashes for bullet points. DO NOT use markdown headings (#) or bolding (**), write as natural plain text.\n\n'
           'EXCERPT:\n"$excerpt"';
 
       final note = await VertexAiService.getMultimodalCompletion(
@@ -420,7 +420,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         _pendingPhrases.clear();
       }
       AgoraService.addTranscriptSnippet('Session ended after ${_formatTime(_sessionTime)} with $_expertName.');
-      final aiNotes = await AgoraService.generateSessionNotes(_partialText);
+      final aiNotes = await AgoraService.generateSessionNotes(_sessionTime, _partialText);
       
       if (mounted && aiNotes != null && !aiNotes.contains("No conversation data")) {
         final savedSession = await notesController.saveSession(
@@ -455,7 +455,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
         _pendingPhrases.clear();
       }
       AgoraService.addTranscriptSnippet('Session was ended by the other participant.');
-      final aiNotes = await AgoraService.generateSessionNotes(_partialText);
+      final aiNotes = await AgoraService.generateSessionNotes(_sessionTime, _partialText);
       
       if (mounted && aiNotes != null && !aiNotes.contains("No conversation data")) {
          final savedSession = await notesController.saveSession(
