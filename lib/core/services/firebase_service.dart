@@ -151,7 +151,9 @@ class FirebaseService {
       for (final doc in snapshot.docs) {
         try {
           final data = doc.data();
-          experts.add(Expert.fromJson({...data, 'id': doc.id}));
+          final expert = Expert.fromJson({...data, 'id': doc.id});
+          debugPrint('📡 [STREAM] Expert "${expert.name}" (docId: ${doc.id}) has ${expert.schedule.length} schedule days: ${expert.schedule.map((s) => '${s.day}(${s.slots.length})').join(', ')}');
+          experts.add(expert);
         } catch (e) {
           debugPrint('❌ [FIREBASE] Failed to parse expert ${doc.id}: $e');
         }
@@ -331,15 +333,16 @@ class FirebaseService {
         });
   }
 
-  /// Updates an expert's profile data (e.g. schedule, bio)
+  /// Updates an expert's profile data (e.g. schedule, bio).
+  /// Uses merge-set to avoid read-before-write issues with offline cache.
   Future<void> updateExpertProfileData(
       String expertId, Map<String, dynamic> data) async {
-    final doc = await _firestore.collection('experts').doc(expertId).get();
-    if (!doc.exists) {
-      await _firestore.collection('experts').doc(expertId).set(data);
-    } else {
-      await _firestore.collection('experts').doc(expertId).update(data);
-    }
+    debugPrint('🔄 [FIREBASE] updateExpertProfileData — docId: "$expertId", keys: ${data.keys.toList()}');
+    final docRef = _firestore.collection('experts').doc(expertId);
+    await docRef.set(data, SetOptions(merge: true));
+    // Force a server read-back to confirm the write was persisted
+    final verify = await docRef.get(const GetOptions(source: Source.server));
+    debugPrint('✅ [FIREBASE] Verified write — doc exists: ${verify.exists}, schedule length: ${(verify.data()?['schedule'] as List?)?.length ?? 'null'}');
   }
 
   // --- Notifications ---

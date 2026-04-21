@@ -286,8 +286,11 @@ class _ExpertDashboardPageState extends State<ExpertDashboardPage> {
 
                           final expertId = expertProfile['id'] ?? expertProfile['email'];
                           if (expertId == null) throw Exception("Expert ID is missing");
+                          debugPrint('📋 [SCHEDULE] Saving schedule for expertId: "$expertId" (type: ${expertId.runtimeType})');
+                          debugPrint('📋 [SCHEDULE] New schedule data: $newSchedule');
                           final navigator = Navigator.of(ctx);
-                          await FirebaseService().updateExpertProfileData(expertId, {'schedule': newSchedule});
+                          await FirebaseService().updateExpertProfileData(expertId.toString(), {'schedule': newSchedule});
+                          debugPrint('✅ [SCHEDULE] Schedule saved successfully to Firestore');
                           
                           final updatedProfile = Map<String, dynamic>.from(expertProfile);
                           updatedProfile['schedule'] = newSchedule;
