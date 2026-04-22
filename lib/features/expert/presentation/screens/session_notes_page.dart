@@ -2,12 +2,91 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/notes_controller.dart';
+import '../../data/models/note_model.dart';
 
-class SessionNotesPage extends StatelessWidget {
+class SessionNotesPage extends StatefulWidget {
   final String sessionId;
 
   const SessionNotesPage({super.key, required this.sessionId});
+
+  @override
+  State<SessionNotesPage> createState() => _SessionNotesPageState();
+}
+
+class _SessionNotesPageState extends State<SessionNotesPage> {
+  SessionNote? _session;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSessionWithSync();
+  }
+
+  Future<void> _loadSessionWithSync() async {
+    final notesController = Get.find<NotesController>();
+    var session = notesController.getSessionById(widget.sessionId);
+
+    // If session is local but missing AI content, OR session is missing entirely, try Firestore
+    if (session == null || session.aiContent == null || session.aiContent!.isEmpty) {
+      try {
+        final doc = await FirebaseFirestore.instance.collection('bookings').doc(widget.sessionId).get();
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          final aiNotes = data['ai_notes'] as String?;
+          
+          if (aiNotes != null && aiNotes.isNotEmpty) {
+            // Use existing duration from Firestore if present, else default to 0
+            final firestoreDuration = int.tryParse(data['duration']?.toString() ?? '0') ?? 0;
+            
+            if (session != null) {
+              session = SessionNote(
+                id: session.id,
+                expertName: session.expertName,
+                expertTitle: session.expertTitle,
+                sessionDate: session.sessionDate,
+                duration: session.duration > 0 ? session.duration : firestoreDuration,
+                notes: session.notes,
+                summary: session.summary,
+                aiContent: aiNotes,
+              );
+            } else {
+              // Create session from Firestore data
+              session = SessionNote(
+                id: widget.sessionId,
+                expertName: data['expert_name'] ?? 'Expert',
+                expertTitle: data['expert_title'] ?? 'Consultation',
+                sessionDate: (data['session_date_ts'] as Timestamp?)?.toDate() ?? DateTime.now(),
+                duration: firestoreDuration,
+                notes: [],
+                summary: 'Discussion overview from Firestore',
+                aiContent: aiNotes,
+              );
+            }
+            // Save/Update locally so it's available in Notes History next time
+            await notesController.saveSession(
+              id: session.id,
+              expertName: session.expertName,
+              expertTitle: session.expertTitle,
+              duration: session.duration,
+              aiContent: session.aiContent,
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Error syncing session from Firestore: $e');
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _session = session;
+        _isLoading = false;
+      });
+    }
+  }
 
   String _formatDuration(int seconds) {
     final mins = seconds ~/ 60;
@@ -17,30 +96,38 @@ class SessionNotesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final notesController = Get.find<NotesController>();
-    final session = notesController.getSessionById(sessionId);
-
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    if (session == null) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_session == null) {
       return Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         body: Center(
-          child: Text(
-            'Session not found',
-            style: TextStyle(color: colorScheme.onSurface),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Session not found', style: TextStyle(color: colorScheme.onSurface, fontSize: 18)),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: () => context.go('/home'), child: const Text('Back to Home')),
+            ],
           ),
         ),
       );
     }
 
+    final session = _session!;
     final cardColor     = colorScheme.surface;
     final cardBorder    = isDark ? const Color(0xFF1E4976) : const Color(0xFFBAE6FD);
     final textPrimary   = colorScheme.onSurface;
     final textSecondary = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
-    // Dynamic gradient matching app_theme.dart primary/secondary
     final headerGrad    = isDark
         ? [colorScheme.secondary, colorScheme.primary]
         : [colorScheme.primary, colorScheme.secondary];
@@ -70,7 +157,7 @@ class SessionNotesPage extends StatelessWidget {
                 ),
               ],
             ),
-            padding: const EdgeInsets.only(top: 40, bottom: 80, left: 24, right: 24),
+            padding: const EdgeInsets.only(top: 40, bottom: 80, left: 16, right: 16),
             child: Row(
               children: [
                 IconButton(
@@ -85,36 +172,36 @@ class SessionNotesPage extends StatelessWidget {
                 ),
                 Expanded(
                   child: Center(
-                    child: Column(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Text(
                           'SESSION NOTES',
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
-                            letterSpacing: 4,
+                            letterSpacing: 2,
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: Colors.amber,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.auto_awesome, size: 12, color: Colors.white),
+                              Icon(Icons.auto_awesome, size: 10, color: Colors.white),
                               SizedBox(width: 4),
                               Text(
                                 'AI Generated',
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 9,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
-                                  letterSpacing: 1,
                                 ),
                               ),
                             ],
@@ -124,7 +211,7 @@ class SessionNotesPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 48), // Match back button width to keep center aligned
+                const SizedBox(width: 48), // Balanced alignment
               ],
             ),
           ),
@@ -205,7 +292,7 @@ class SessionNotesPage extends StatelessWidget {
                               ),
                               child: Center(
                                 child: Text(
-                                  session.expertName.substring(0, 2).toUpperCase(),
+                                  session.expertName.isNotEmpty ? session.expertName.substring(0, 2).toUpperCase() : 'EX',
                                   style: const TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
@@ -257,7 +344,7 @@ class SessionNotesPage extends StatelessWidget {
                             ),
                             _buildInfoItem(
                               Icons.note,
-                              '${session.notes.length} notes',
+                              'Insights ready',
                               accentBlue,
                               textSecondary,
                             ),
@@ -294,10 +381,9 @@ class SessionNotesPage extends StatelessWidget {
                     ),
                     child: Builder(
                       builder: (context) {
-                        final mergedNotes = session.notes.map((n) => n.content).join('\n\n');
                         final String rawText = session.aiContent?.isNotEmpty == true 
                             ? session.aiContent! 
-                            : (mergedNotes.isNotEmpty ? mergedNotes : session.summary);
+                            : session.summary;
                         final String cleanedText = rawText.replaceAll('*', '').trim();
 
                         return Text(
@@ -308,7 +394,8 @@ class SessionNotesPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Done button — always navigates home, works even if nav stack is empty
+                  
+                  // Done button
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(

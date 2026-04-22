@@ -61,6 +61,7 @@ class NotesController extends GetxController {
   }
 
   Future<SessionNote> saveSession({
+    String? id,
     required String expertName,
     required String expertTitle,
     required int duration,
@@ -69,7 +70,7 @@ class NotesController extends GetxController {
     final cleanedAiContent = aiContent?.replaceAll('*', '').trim();
     
     final session = SessionNote(
-      id: const Uuid().v4(),
+      id: id ?? const Uuid().v4(),
       expertName: expertName,
       expertTitle: expertTitle,
       sessionDate: DateTime.now(),
