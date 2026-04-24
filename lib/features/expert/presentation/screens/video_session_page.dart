@@ -463,7 +463,7 @@ class _VideoSessionPageState extends State<VideoSessionPage> with SingleTickerPr
           duration: _sessionTime,
           aiContent: finalNotes,
         );
-        context.pushReplacement('/session-notes/$_channelId');
+        if (mounted) context.pushReplacement('/session-notes/$_channelId');
       }
     } catch (e) {
       debugPrint('Error syncing notes: $e');
